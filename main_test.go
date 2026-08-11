@@ -205,6 +205,64 @@ func TestExportToFileWithTagFilter(t *testing.T) {
 	}
 }
 
+// -o must not quietly destroy something, least of all the file being read.
+func TestExportRefusesToOverwriteTheInput(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "records.mrc")
+	data, err := os.ReadFile(sample)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if err := os.WriteFile(input, data, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	_, _, err = exec(t, "export", "-format", "mrc", "-o", input, input)
+	if err == nil {
+		t.Fatal("export overwrote its own input")
+	}
+	if !strings.Contains(err.Error(), "input") {
+		t.Errorf("error = %q, want it to explain the clash", err)
+	}
+	if after, _ := os.ReadFile(input); len(after) != len(data) {
+		t.Error("the input file was modified")
+	}
+
+	// The same file reached by a different path is still the same file.
+	if _, _, err := exec(t, "export", "-format", "mrc", "-o",
+		filepath.Join(dir, ".", "records.mrc"), input); err == nil {
+		t.Error("a path spelled differently slipped through")
+	}
+}
+
+func TestExportRefusesAnExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "out.mrc")
+	if err := os.WriteFile(out, []byte("precious"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	_, _, err := exec(t, "export", "-format", "mrc", "-o", out, sample)
+	if err == nil {
+		t.Fatal("export overwrote an existing file")
+	}
+	if !strings.Contains(err.Error(), "-force") {
+		t.Errorf("error = %q, want it to name the flag that allows this", err)
+	}
+	if got, _ := os.ReadFile(out); string(got) != "precious" {
+		t.Error("the existing file was overwritten anyway")
+	}
+
+	// -force is the way through.
+	if _, _, err := exec(t, "export", "-format", "mrc", "-force", "-o", out, sample); err != nil {
+		t.Fatalf("export -force: %v", err)
+	}
+	res, err := marcio.LoadFile(out)
+	if err != nil || len(res.Records) != 3 {
+		t.Errorf("-force did not write the records: %v", err)
+	}
+}
+
 func TestExportRequiresFormat(t *testing.T) {
 	if _, _, err := exec(t, "export", sample); err == nil {
 		t.Error("export ran without -format")

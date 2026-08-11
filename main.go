@@ -4,10 +4,12 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/beyto1974/lunette/internal/export"
 	"github.com/beyto1974/lunette/internal/marcio"
@@ -82,6 +84,7 @@ export flags:
   -scope titles|record|both              where -filter looks (default titles)
   -all                                   shorthand for -scope both
   -tag NNN                               keep records carrying field NNN
+  -force                                 overwrite the output file if it exists
 `)
 }
 
@@ -172,11 +175,15 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	tag := fs.String("tag", "", "keep records carrying this field")
 	scope := fs.String("scope", "titles", "where -filter looks: titles, record or both")
 	all := fs.Bool("all", false, "shorthand for -scope both")
+	force := fs.Bool("force", false, "overwrite the output file if it exists")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
+	}
+	if err := checkOutput(*outPath, fs.Arg(0), *force); err != nil {
+		return err
 	}
 	f, err := export.ParseFormat(*format)
 	if err != nil {
@@ -213,6 +220,36 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	// Skipped records would silently shrink the output, so say so.
 	if n := len(res.Issues); n > 0 {
 		fmt.Fprintf(stderr, "lunette: %d record(s) could not be decoded and were not exported\n", n)
+	}
+	return nil
+}
+
+// checkOutput refuses an export that would destroy something. Writing over the
+// input truncates the file mid-read and loses both copies; writing over any
+// other existing file is at least worth asking about, so it needs -force.
+func checkOutput(outPath, inputPath string, force bool) error {
+	if outPath == "" {
+		return nil // stdout
+	}
+
+	out, err := filepath.Abs(outPath)
+	if err != nil {
+		return err
+	}
+	in, err := filepath.Abs(inputPath)
+	if err != nil {
+		return err
+	}
+	if out == in {
+		return fmt.Errorf("refusing to write over the input file %s", inputPath)
+	}
+
+	if _, err := os.Stat(out); err == nil {
+		if !force {
+			return fmt.Errorf("%s exists; pass -force to overwrite it", outPath)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	return nil
 }
