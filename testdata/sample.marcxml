@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<collection xmlns="http://www.loc.gov/MARC21/slim">
+<record>
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">rec-0001</controlfield>
+  <controlfield tag="008">181023s2002    be |||||||  |||||||||eng  </controlfield>
+  <datafield tag="100" ind1="1" ind2=" ">
+    <subfield code="a">De Block, Wim</subfield>
+  </datafield>
+  <datafield tag="245" ind1="1" ind2="0">
+    <subfield code="a">Identification of Transmission Lines</subfield>
+    <subfield code="b">from time-domain measurements</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="c">2002</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2="0">
+    <subfield code="u">https://biblio.vub.ac.be/vubir/rec-0001.html</subfield>
+  </datafield>
+</record>
+<record>
+  <leader>00000nab a2200000 a 4500</leader>
+  <controlfield tag="001">rec-0002</controlfield>
+  <controlfield tag="008">181019s2018    be |||||||  |||||||||dut  </controlfield>
+  <datafield tag="100" ind1="1" ind2=" ">
+    <subfield code="a">Kloza, Dariusz</subfield>
+  </datafield>
+  <datafield tag="245" ind1="1" ind2="0">
+    <subfield code="a">Gegevensbescherming en café-cultuur</subfield>
+  </datafield>
+  <datafield tag="650" ind1=" " ind2="0">
+    <subfield code="a">Privacy</subfield>
+  </datafield>
+</record>
+<record>
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">rec-0003</controlfield>
+  <controlfield tag="008">200101s2020    be |||||||  |||||||||fre  </controlfield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Sans auteur</subfield>
+  </datafield>
+  <datafield tag="999" ind1=" " ind2=" ">
+    <subfield code="a">local field</subfield>
+  </datafield>
+</record>
+</collection>
