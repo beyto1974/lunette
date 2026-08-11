@@ -266,6 +266,46 @@ func TestFullHelpListsEveryBinding(t *testing.T) {
 	}
 }
 
+// On a narrow terminal the path is the least useful part of the title bar, so
+// it gives way to the file name rather than truncating the counts away.
+func TestTitleBarShortensPathWhenNarrow(t *testing.T) {
+	m := newLoaded(t)
+
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if wide := stripANSI(m.titleBar()); !strings.Contains(wide, "testdata/sample.mrc") {
+		t.Errorf("wide title bar dropped the path: %q", wide)
+	}
+
+	m.Update(tea.WindowSizeMsg{Width: 44, Height: 14})
+	narrow := stripANSI(m.titleBar())
+	if strings.Contains(narrow, "testdata/") {
+		t.Errorf("narrow title bar kept the directory: %q", narrow)
+	}
+	for _, want := range []string{"sample.mrc", "MARC21", "3 records"} {
+		if !strings.Contains(narrow, want) {
+			t.Errorf("narrow title bar lost %q: %q", want, narrow)
+		}
+	}
+}
+
+// An empty result must say why it is empty and how to get out of it.
+func TestEmptyListExplainsItself(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.setFilter("zzzz")
+
+	pane := stripANSI(m.listPane())
+	if !strings.Contains(pane, "No record matches") {
+		t.Errorf("empty list does not say nothing matched:\n%s", pane)
+	}
+	if !strings.Contains(pane, "esc") {
+		t.Errorf("empty list does not say how to clear the filter:\n%s", pane)
+	}
+	if strings.Contains(pane, "No items.") {
+		t.Errorf("the bubble's default empty text is still showing:\n%s", pane)
+	}
+}
+
 func TestClamp(t *testing.T) {
 	if clamp(5, 10, 20) != 10 || clamp(25, 10, 20) != 20 || clamp(15, 10, 20) != 15 {
 		t.Error("clamp is wrong")

@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -98,7 +100,7 @@ func (m *Model) View() tea.View {
 func (m *Model) titleBar() string {
 	parts := []string{
 		m.st.titleBar.Render("marcview"),
-		m.st.fileName.Render(m.path),
+		m.st.fileName.Render(m.titlePath()),
 	}
 
 	meta := []string{m.format.String()}
@@ -125,8 +127,30 @@ func (m *Model) titleBar() string {
 	return truncate(strings.Join(parts, m.st.meta.Render(" · ")), m.width)
 }
 
+// titlePath is the file name alone once the directory would crowd out the
+// counts, which matter more than where the file lives.
+func (m *Model) titlePath() string {
+	const roomForTheRest = 34
+	if m.width > 0 && len(m.path)+roomForTheRest > m.width {
+		return filepath.Base(m.path)
+	}
+	return m.path
+}
+
 func (m *Model) listPane() string {
-	return m.pane(paneList, m.list.Width(), m.listHeader(), m.list.View())
+	return m.pane(paneList, m.list.Width(), m.listHeader(), m.listBody())
+}
+
+// listBody is the list, or an explanation when there is nothing to list. The
+// bubble's own "No items." says nothing about the filter that emptied it.
+func (m *Model) listBody() string {
+	if len(m.list.Items()) > 0 {
+		return m.list.View()
+	}
+	if m.filter.empty() {
+		return "\n  This file holds no records."
+	}
+	return "\n  No record matches.\n\n  " + m.st.meta.Render("esc clears the filter")
 }
 
 // listHeader reports where the cursor sits in the file: position, how many
@@ -135,7 +159,10 @@ func (m *Model) listPane() string {
 func (m *Model) listHeader() string {
 	total, shown := len(m.records), len(m.list.Items())
 	if shown == 0 {
-		return m.st.meta.Render("no records")
+		if m.filter.empty() {
+			return m.st.meta.Render("no records")
+		}
+		return m.st.meta.Render("0 of " + itoa(total))
 	}
 
 	position := m.list.Index() + 1
@@ -250,6 +277,8 @@ func truncate(s string, width int) string {
 	}
 	return lipgloss.NewStyle().MaxWidth(width).Render(s)
 }
+
+func itoa(n int) string { return strconv.Itoa(n) }
 
 func clamp(v, lo, hi int) int {
 	if v < lo {
