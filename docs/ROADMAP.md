@@ -10,7 +10,17 @@ Effort is rough: **S** under a day, **M** a few days, **L** a week or more.
 
 ## 1. Worth doing next
 
-### 1.1 Field-level cursor in the record pane — M
+### ~~1.1 Field-level cursor in the record pane~~ — done
+
+The renderer now returns field spans alongside the text, and the record pane
+draws a cursor over them: ↑/↓ step by field, the gutter marks every line the
+field wraps onto, and y copies the selected field. Follow-on actions from the
+original proposal - filter by this subject, open this 856 - are still open and
+now cheap, since "this" finally has a meaning.
+
+<details><summary>Original proposal</summary>
+
+
 
 Today the right pane is a scrolling block of text. Making individual fields
 selectable turns it into a structure you can act on: copy one field, filter the
@@ -21,6 +31,8 @@ because every later action ("filter by this", "copy this") needs a notion of
 
 Implementation: keep the rendered record as `[]fieldLine` with a field index per
 line rather than one string, and drive the viewport from that.
+
+</details>
 
 ### ~~1.2 Compact record view~~ — done
 

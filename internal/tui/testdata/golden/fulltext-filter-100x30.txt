@@ -1,21 +1,21 @@
 marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 1 shown
 ╭────────────────────────────────────╮╭────────────────────────────────────────────────────────────╮
-│1/1 of 3 · 100%                     ││record 2/3 · rec-0002 · annotated · match 1/1 · 100%        │
-│▸ 00002 Gegevensbescherming en… 2018││LEADER 00209nab a2200085 a 4500                             │
-│                                    ││       status=n(new)  type=a(language material)             │
-│                                    ││       biblevel=b(serial component part)  encoding=#(full)  │
-│                                    ││       desc=a(AACR2)                                        │
+│1/1 of 3 · 100%                     ││record 2/3 · field 1/5 · match 1/1 · annotated · 100%       │
+│▸ 00002 Gegevensbescherming en… 2018││  LEADER 00209nab a2200085 a 4500                           │
+│                                    ││         status=n(new)  type=a(language material)           │
+│                                    ││         biblevel=b(serial component part)  encoding=#(full)│
+│                                    ││         desc=a(AACR2)                                      │
 │                                    ││                                                            │
-│                                    ││001    Control Number                                       │
-│                                    ││       rec-0002                                             │
-│                                    ││008    Fixed-Length Data Elements                           │
-│                                    ││       181019s2018    be |||||||  |||||||||dut              │
-│                                    ││100 1# Main Entry - Personal Name                           │
-│                                    ││       $a Kloza, Dariusz                                    │
-│                                    ││245 10 Title Statement                                      │
-│                                    ││       $a Gegevensbescherming en café-cultuur               │
-│                                    ││650 #0 Subject Added Entry - Topical Term                   │
-│                                    ││       $a Privacy                                           │
+│                                    ││▌ 001    Control Number                                     │
+│                                    ││▌        rec-0002                                           │
+│                                    ││  008    Fixed-Length Data Elements                         │
+│                                    ││         181019s2018    be |||||||  |||||||||dut            │
+│                                    ││  100 1# Main Entry - Personal Name                         │
+│                                    ││         $a Kloza, Dariusz                                  │
+│                                    ││  245 10 Title Statement                                    │
+│                                    ││         $a Gegevensbescherming en café-cultuur             │
+│                                    ││  650 #0 Subject Added Entry - Topical Term                 │
+│                                    ││         $a Privacy                                         │
 │                                    ││                                                            │
 │                                    ││                                                            │
 │                                    ││                                                            │

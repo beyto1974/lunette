@@ -29,7 +29,7 @@ func (m *Model) layout() {
 
 	// Below the combined minimum there is no room for two panes, so the
 	// terminal shows whichever one has focus.
-	m.singlePane = m.width < listMinWidth+detailMinimum
+	m.singlePane = m.zoom || m.width < listMinWidth+detailMinimum
 
 	listWidth := clamp(int(float64(m.width)*listFraction), listMinWidth, listMaxWidth)
 	detailWidth := m.width - listWidth
@@ -177,16 +177,7 @@ func (m *Model) listHeader() string {
 func (m *Model) detailPane() string {
 	header := m.st.meta.Render("no record")
 	if _, it, ok := m.current(); ok {
-		label := fmt.Sprintf("record %d/%d", it.ordinal, len(m.records))
-		if cn := m.currentControlNumber(); cn != "" {
-			label += " · " + cn
-		}
-		meta := " · " + m.mode.String()
-		if n := m.matchCount(); n > 0 {
-			meta += fmt.Sprintf(" · match %d/%d", m.matchIdx+1, n)
-		}
-		meta += " · " + scrollHint(m.vp.ScrollPercent())
-		header = m.st.paneTitle.Render(label) + m.st.meta.Render(meta)
+		header = m.detailHeader(it)
 	}
 
 	return m.pane(paneDetail, m.vp.Width(), header, m.vp.View())
@@ -220,6 +211,43 @@ func fitLines(lines []string, n int) []string {
 		lines = append(lines, "")
 	}
 	return lines[:n]
+}
+
+// detailHeader packs as much of the record's status into the pane width as
+// fits, dropping the least useful part first. Truncating instead would cut the
+// scroll position off mid-digit on a narrow terminal.
+func (m *Model) detailHeader(it item) string {
+	position := fmt.Sprintf("record %d/%d", it.ordinal, len(m.records))
+
+	var rest []string
+	if n := m.fieldCount(); n > 0 {
+		rest = append(rest, fmt.Sprintf("field %d/%d", m.fieldCursor+1, n))
+	}
+	if n := m.matchCount(); n > 0 {
+		rest = append(rest, fmt.Sprintf("match %d/%d", m.matchIdx+1, n))
+	}
+	rest = append(rest, m.mode.String(), scrollHint(m.vp.ScrollPercent()))
+	if cn := m.currentControlNumber(); cn != "" {
+		rest = append(rest, cn)
+	}
+
+	const separator = " · "
+	width := m.vp.Width()
+	used := lipglossWidth(position)
+	kept := rest[:0]
+	for _, part := range rest {
+		if used+len(separator)+lipglossWidth(part) > width {
+			continue
+		}
+		used += len(separator) + lipglossWidth(part)
+		kept = append(kept, part)
+	}
+
+	header := m.st.paneTitle.Render(position)
+	if len(kept) > 0 {
+		header += m.st.meta.Render(separator + strings.Join(kept, separator))
+	}
+	return header
 }
 
 func (m *Model) currentControlNumber() string {

@@ -16,7 +16,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.layout()
-		m.refreshDetail()
+		// Re-wrap at the new width, but leave the cursor where the user put it.
+		m.reflowDetail()
 		return m, nil
 
 	case loadMsg:
@@ -116,11 +117,24 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		m.openInput(inputJump)
 		return nil
 
+	// In one pane, esc is the way back to the list; only once there does it
+	// clear the filter.
 	case key.Matches(msg, k.Clear):
+		if m.singlePane && m.focus == paneDetail {
+			m.focus = paneList
+			return nil
+		}
 		if m.filter.empty() {
 			return nil
 		}
 		return m.setFilter("")
+
+	case key.Matches(msg, k.Zoom):
+		m.zoom = !m.zoom
+		m.layout()
+		m.reflowDetail()
+		m.status = "one pane: " + onOff(m.zoom)
+		return nil
 
 	case key.Matches(msg, k.Annotated):
 		return m.setMode(render.Annotated)
@@ -157,8 +171,26 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.copyCurrent()
 	}
 
-	// Anything else drives the focused pane.
+	// Anything else drives the focused pane. With a record focused the up and
+	// down keys move the field cursor; the structured views have no fields, so
+	// there they scroll as usual.
 	if m.focus == paneDetail {
+		if m.fieldCount() > 0 {
+			switch {
+			case key.Matches(msg, k.Up):
+				m.moveField(-1)
+				return nil
+			case key.Matches(msg, k.Down):
+				m.moveField(1)
+				return nil
+			case key.Matches(msg, k.Top):
+				m.moveField(-len(m.fields))
+				return nil
+			case key.Matches(msg, k.Bottom):
+				m.moveField(len(m.fields))
+				return nil
+			}
+		}
 		var cmd tea.Cmd
 		m.vp, cmd = m.vp.Update(msg)
 		return cmd
@@ -180,12 +212,28 @@ func (m *Model) setMode(mode render.Mode) tea.Cmd {
 	return nil
 }
 
-// copyCurrent puts the uncoloured rendering of the current record on the
-// system clipboard via OSC 52, which works over SSH too.
+func onOff(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
+}
+
+// copyCurrent puts the uncoloured rendering on the system clipboard via OSC 52,
+// which works over SSH too: the selected field when the record pane has focus,
+// the whole record otherwise.
 func (m *Model) copyCurrent() tea.Cmd {
 	rec, it, ok := m.current()
 	if !ok {
 		return nil
+	}
+
+	if m.focus == paneDetail && m.fieldCount() > 0 {
+		if text, ok := m.selectedFieldText(); ok {
+			m.status = fmt.Sprintf("copied field %s of record %d",
+				m.fields[m.fieldCursor].Tag, it.ordinal)
+			return tea.SetClipboard(text)
+		}
 	}
 	// Copy unwrapped: the pane width is a display choice, not part of the
 	// record.

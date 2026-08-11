@@ -46,9 +46,10 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 
 | Key | Action |
 |---|---|
-| `↑` `↓` `j` `k` | Move through records |
-| `g` / `G` | First / last record |
+| `↑` `↓` `j` `k` | Move — through records in the list, field by field in the record |
+| `g` / `G` | First / last record, or first / last field |
 | `tab`, `enter` | Switch focus between the panes |
+| `z` | One pane at a time; `enter` opens the record, `esc` goes back |
 | `ctrl+u` / `ctrl+d` | Half-page scroll in the record pane |
 | `/` | Filter (`tag:856 brussels` narrows by field and text) |
 | `s` | Cycle where the search looks: titles → record → both |
@@ -56,9 +57,18 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `esc` | Clear the filter |
 | `:` | Jump to a record number |
 | `a` `c` `r` `J` `X` | Annotated, compact, raw breaker, JSON, XML views |
-| `y` | Copy the current record to the clipboard (OSC 52, works over SSH) |
+| `y` | Copy — the selected field with the record focused, the whole record otherwise (OSC 52, works over SSH) |
 | `?` | Toggle full help (the short row is always visible) |
 | `q`, `ctrl+c` | Quit |
+
+The record pane has a cursor of its own: with it focused, `↑`/`↓` step from
+field to field rather than line to line, the selected field is marked in the
+gutter across every line it wraps onto, and `y` copies just that field. The
+structured views have no field structure, so there the same keys scroll.
+
+`z` collapses the browser to a single pane on any terminal — `enter` opens the
+record, `esc` returns to the list — which is also what happens automatically
+below about 58 columns.
 
 Each pane carries a header: the list shows the cursor position and how far
 through the file it is (`1204/5572 · 22%`, plus `of 5572` when a filter is

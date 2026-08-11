@@ -72,7 +72,15 @@ type Model struct {
 	// and matchIdx is the one the viewport is parked on.
 	matchLines []int
 	matchIdx   int
-	status     string
+
+	// fields are the line ranges of the record on show, and fieldCursor is the
+	// one selected. Structured views carry no spans, and then the record pane
+	// scrolls by line as before.
+	fields      []render.FieldSpan
+	fieldCursor int
+	// zoom forces the single-pane layout on a terminal wide enough for two.
+	zoom   bool
+	status string
 
 	width, height int
 	bodyHeight    int    // rows the panes occupy, borders included
@@ -222,20 +230,131 @@ func (m *Model) current() (*marc.Record, item, bool) {
 	return m.records[it.index], it, true
 }
 
-// refreshDetail re-renders the right pane for the current selection.
+// refreshDetail re-renders the right pane for the current selection and puts
+// the field cursor back at the top of the record.
 func (m *Model) refreshDetail() {
+	m.fieldCursor = 0
+	m.redrawDetail()
+
+	if rec, _, ok := m.current(); ok {
+		m.vp.SetYOffset(0)
+		m.findMatches(rec)
+	}
+}
+
+// reflowDetail re-renders after a width change. The record wraps differently,
+// so the match lines have to be found again, but the field cursor belongs to
+// the user and stays where it is.
+func (m *Model) reflowDetail() {
+	m.redrawDetail()
+	if rec, _, ok := m.current(); ok {
+		wanted := m.matchIdx
+		m.findMatches(rec)
+		if wanted < len(m.matchLines) {
+			m.matchIdx = wanted
+		}
+	}
+	m.scrollToField()
+}
+
+// redrawDetail re-renders the record with the current field cursor marked,
+// leaving the scroll position alone.
+func (m *Model) redrawDetail() {
 	rec, _, ok := m.current()
 	if !ok {
 		m.vp.SetContent("")
+		m.fields = nil
 		return
 	}
-	out, err := render.Render(rec, m.mode, m.renderOptions(true))
+
+	lay, err := render.RenderLayout(rec, m.mode, m.renderOptions(true))
 	if err != nil {
-		out = "render error: " + err.Error()
+		m.vp.SetContent("render error: " + err.Error())
+		m.fields = nil
+		return
 	}
-	m.vp.SetContent(out)
-	m.vp.SetYOffset(0)
-	m.findMatches(rec)
+	m.fields = lay.Fields
+	if m.fieldCursor >= len(m.fields) {
+		m.fieldCursor = max(len(m.fields)-1, 0)
+	}
+	m.vp.SetContent(m.withFieldMarker(lay))
+}
+
+// fieldMarker is the gutter drawn beside the selected field. Every line gets a
+// gutter, marked or not, so the text does not shift as the cursor moves.
+const fieldMarker = "▌"
+
+// withFieldMarker adds the cursor gutter to a rendering.
+func (m *Model) withFieldMarker(lay render.Layout) string {
+	if len(lay.Fields) == 0 {
+		return lay.Text
+	}
+	selected := render.FieldSpan{Start: -1, End: -1}
+	if m.fieldCursor < len(lay.Fields) {
+		selected = lay.Fields[m.fieldCursor]
+	}
+
+	lines := strings.Split(lay.Text, "\n")
+	for i, line := range lines {
+		if i >= selected.Start && i < selected.End {
+			lines[i] = m.st.fieldCursor.Render(fieldMarker) + " " + line
+			continue
+		}
+		lines[i] = "  " + line
+	}
+	return strings.Join(lines, "\n")
+}
+
+// fieldCount is how many fields the current rendering exposes.
+func (m *Model) fieldCount() int { return len(m.fields) }
+
+// moveField moves the field cursor, clamping at the ends: a cursor that wraps
+// makes it impossible to tell the top of a record from the bottom.
+func (m *Model) moveField(delta int) {
+	if len(m.fields) == 0 {
+		return
+	}
+	next := clamp(m.fieldCursor+delta, 0, len(m.fields)-1)
+	if next == m.fieldCursor {
+		return
+	}
+	m.fieldCursor = next
+	m.redrawDetail()
+	m.scrollToField()
+}
+
+// scrollToField brings the selected field into view, without recentring when
+// it is already on screen.
+func (m *Model) scrollToField() {
+	if m.fieldCursor >= len(m.fields) {
+		return
+	}
+	span := m.fields[m.fieldCursor]
+	top, bottom := m.vp.YOffset(), m.vp.YOffset()+m.vp.Height()
+	switch {
+	case span.Start < top:
+		m.vp.SetYOffset(span.Start)
+	case span.End > bottom:
+		m.vp.SetYOffset(span.End - m.vp.Height())
+	}
+}
+
+// selectedFieldText is the plain text of the field under the cursor.
+func (m *Model) selectedFieldText() (string, bool) {
+	rec, _, ok := m.current()
+	if !ok || m.fieldCursor >= len(m.fields) {
+		return "", false
+	}
+	lay, err := render.RenderLayout(rec, m.mode, m.renderOptions(false))
+	if err != nil || m.fieldCursor >= len(lay.Fields) {
+		return "", false
+	}
+	span := lay.Fields[m.fieldCursor]
+	lines := strings.Split(lay.Text, "\n")
+	if span.End > len(lines) {
+		return "", false
+	}
+	return strings.Join(lines[span.Start:span.End], "\n"), true
 }
 
 // renderOptions describes the current view. The coloured and plain renderings
@@ -245,7 +364,8 @@ func (m *Model) renderOptions(color bool) render.Options {
 	return render.Options{
 		Color: color,
 		Match: m.filter.query,
-		Width: m.vp.Width(),
+		// Two cells go to the field-cursor gutter.
+		Width: max(m.vp.Width()-2, 1),
 		// A record on one line is unreadable in a pane, so the structured
 		// views are always indented here. Export leaves them as they are.
 		Indent: true,

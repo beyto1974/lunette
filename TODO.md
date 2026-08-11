@@ -14,6 +14,11 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 - [ ] Check `Record.GetLinkedFields` behaviour on records with repeated `$6`
       occurrence numbers; the 880 pairing assumes it returns only true partners.
 
+## Views
+
+- [ ] Act on the selected field: filter by this subject, open this 856. The
+      field cursor exists now, so these are small additions.
+
 ## Testing
 
 
