@@ -1,0 +1,13 @@
+# Keep line endings LF everywhere, including Windows checkouts. The golden
+# frames under internal/tui/testdata are compared byte for byte against what
+# the browser renders, so a CRLF translation on checkout makes every one of
+# them fail.
+* text=auto eol=lf
+
+# MARC fixtures are binary: they carry field and record terminators (0x1e,
+# 0x1d) and, in escapes.mrc, deliberate control characters. Git must not
+# examine or rewrite them.
+*.mrc binary
+
+# Generated, and noisy in diffs.
+docs/*.svg -diff
