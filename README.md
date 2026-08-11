@@ -56,8 +56,12 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `:` | Jump to a record number |
 | `a` `c` `r` `J` `X` | Annotated, compact, raw breaker, JSON, XML views |
 | `y` | Copy the current record to the clipboard (OSC 52, works over SSH) |
-| `?` | Toggle full help |
+| `?` | Toggle full help (the short row is always visible) |
 | `q`, `ctrl+c` | Quit |
+
+The mouse works too: click a record to select it, click a pane to focus it, and
+scroll the wheel over either pane — the wheel moves what is under the pointer
+without stealing focus, so you can skim the record list while reading a record.
 
 Records stream in as they load, so a large file is browsable immediately.
 Below about 58 columns the browser shows one pane at a time, following focus.

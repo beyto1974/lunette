@@ -114,29 +114,34 @@ reports byte noise rather than field changes.
 
 ## 2. Nice to have
 
-### 2.1 Saved views and bookmarks — S
+### ~~2.1 Mouse support~~ — done
+
+Click to select a record or focus a pane, wheel to scroll whichever pane the
+pointer is over. Bubble Tea v2 asks for this through `View.MouseMode`.
+
+### 2.2 Saved views and bookmarks — S
 
 Mark records while browsing, then export only the marked set. Pairs naturally
 with the existing `export --filter`.
 
-### 2.2 Filter history and better query syntax — S
+### 2.3 Filter history and better query syntax — S
 
 `year:2020`, `has:856`, `-tag:650` (negation), and recall of previous filters
 with `↑` in the prompt. The current syntax handles text plus one `tag:`.
 
-### 2.3 Configurable colours — S
+### 2.4 Configurable colours — S
 
 A small TOML or JSON theme file mapping the six semantic roles (tag, indicator,
 subfield code, label, leader, match) to colours, plus a `--no-color` flag.
 Terminal themes vary enough that the fixed ANSI-256 choices will not suit
 everyone.
 
-### 2.4 Export the current filter from the TUI — S
+### 2.5 Export the current filter from the TUI — S
 
 `e` in the browser writes the filtered set to a file using the export package
 that already exists. Closes the loop between browsing and extracting.
 
-### 2.5 Follow 856 URLs — S
+### 2.6 Follow 856 URLs — S
 
 `o` opens the electronic-location URL in the system browser. Trivial with
 `xdg-open`/`open`, genuinely useful for a repository of links.
