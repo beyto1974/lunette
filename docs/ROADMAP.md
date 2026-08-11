@@ -86,7 +86,16 @@ is what a search is for.
 
 </details>
 
-### 1.4 Repository-wide statistics view — S
+### 1.4 Two-file mode and record pinning — M
+
+Open two files at once, or pin a record while browsing others, and compare them
+side by side. Re-harvesting the same set is routine; answering "what changed in
+this record" currently means exporting twice and diffing XML, which reports
+byte noise rather than field changes. Pinning is the cheap half: keep one
+record in the right pane while the cursor moves, so the comparison is manual
+but immediate. See also 1.6.
+
+### 1.5 Repository-wide statistics view — S
 
 A `stats` subcommand and an in-app panel: field frequency (how many records
 carry 856, 100, 650), average field count, records per year, encoding-level
@@ -94,7 +103,7 @@ distribution, language codes. Cataloguers ask "what does this harvest actually
 contain?" far more often than they ask about a single record, and it is a
 by-product of a load we already perform.
 
-### 1.5 MARC validation rules — M
+### 1.6 MARC validation rules — M
 
 `validate` currently only reports records that fail to *decode*. Records that
 decode fine can still be wrong: missing 245, no 008, indicators outside the
@@ -103,7 +112,7 @@ A small rule table over the fields already parsed would catch these, with
 `--strict` for a non-zero exit. This is the difference between "the bytes
 parsed" and "the record is usable".
 
-### 1.6 Diff two records or two files — M
+### 1.7 Diff two records or two files — M
 
 Compare the same control number across two harvests, or two records in one
 file, field by field. Anyone re-harvesting a set periodically needs to see what
@@ -119,32 +128,61 @@ reports byte noise rather than field changes.
 Click to select a record or focus a pane, wheel to scroll whichever pane the
 pointer is over. Bubble Tea v2 asks for this through `View.MouseMode`.
 
-### 2.2 Saved views and bookmarks — S
+### 2.2 A golden-frame test for the layout — S
+
+Three layout bugs shipped in this repository and all three were invisible to
+the test suite until someone looked at a real terminal: panes two rows too
+tall, list rows two cells too wide (the year wrapping onto its own line), and
+the full help ellipsised off the right edge. Each was a sizing arithmetic error
+that a rendered frame would have caught instantly.
+
+A golden test that renders the whole view at a few fixed sizes and compares
+against committed text files would turn every one of those into a failing diff.
+It also makes deliberate layout changes visible in review, which per-property
+assertions do not.
+
+### 2.3 Saved views and bookmarks — S
 
 Mark records while browsing, then export only the marked set. Pairs naturally
 with the existing `export --filter`.
 
-### 2.3 Filter history and better query syntax — S
+### 2.4 Filter history and better query syntax — S
 
 `year:2020`, `has:856`, `-tag:650` (negation), and recall of previous filters
 with `↑` in the prompt. The current syntax handles text plus one `tag:`.
 
-### 2.4 Configurable colours — S
+### 2.5 Configurable colours — S
 
 A small TOML or JSON theme file mapping the six semantic roles (tag, indicator,
 subfield code, label, leader, match) to colours, plus a `--no-color` flag.
 Terminal themes vary enough that the fixed ANSI-256 choices will not suit
 everyone.
 
-### 2.5 Export the current filter from the TUI — S
+### 2.6 Export the current filter from the TUI — S
 
 `e` in the browser writes the filtered set to a file using the export package
 that already exists. Closes the loop between browsing and extracting.
 
-### 2.6 Follow 856 URLs — S
+### 2.7 Follow 856 URLs — S
 
 `o` opens the electronic-location URL in the system browser. Trivial with
 `xdg-open`/`open`, genuinely useful for a repository of links.
+
+### 2.8 Encoding diagnostics — S
+
+The loader already decides whether a file's bytes contradict its leader. It
+could say more: which records hold non-ASCII, whether any genuinely use MARC-8
+escape sequences, and what the leader/09 distribution across the file is. A
+`marcview encoding file.mrc` report would have turned this session's "données
+became donn©♭es" from a discovery into a one-line answer, and it is the first
+thing worth running on a harvest from an unfamiliar repository.
+
+### 2.9 Fix the leader on export — S
+
+The records this tool was built for claim MARC-8 and hold UTF-8. `export
+--fix-encoding` would set leader/09 to 'a' on the way out, so downstream tools
+that trust the leader — most of them — stop guessing. It is a one-byte change
+per record and the loader already knows when it applies.
 
 ---
 

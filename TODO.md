@@ -16,6 +16,9 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 
 ## Testing
 
+- [ ] Golden-frame tests for the TUI layout: three sizing bugs shipped and none
+      of them failed a test. See roadmap 2.2.
+
 - [ ] Golden-file tests for the annotated renderer, so layout changes are
       visible in review rather than asserted line by line.
 - [ ] Add a terminal-level TUI test with `teatest` to cover key handling; the
