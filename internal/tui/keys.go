@@ -16,9 +16,12 @@ type KeyMap struct {
 	Jump      key.Binding
 	Clear     key.Binding
 	Annotated key.Binding
+	Compact   key.Binding
 	Raw       key.Binding
 	JSON      key.Binding
 	XML       key.Binding
+	NextMatch key.Binding
+	PrevMatch key.Binding
 	Copy      key.Binding
 	Help      key.Binding
 	Quit      key.Binding
@@ -37,9 +40,12 @@ func defaultKeyMap() KeyMap {
 		Jump:      key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "jump to record")),
 		Clear:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
 		Annotated: key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "annotated")),
+		Compact:   key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "compact")),
 		Raw:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "raw")),
 		JSON:      key.NewBinding(key.WithKeys("J"), key.WithHelp("J", "json")),
 		XML:       key.NewBinding(key.WithKeys("X"), key.WithHelp("X", "xml")),
+		NextMatch: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "next match")),
+		PrevMatch: key.NewBinding(key.WithKeys("N"), key.WithHelp("N", "previous match")),
 		Copy:      key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy record")),
 		Help:      key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Quit:      key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
@@ -48,7 +54,7 @@ func defaultKeyMap() KeyMap {
 
 // ShortHelp and FullHelp satisfy help.KeyMap.
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Filter, k.Jump, k.Switch, k.Raw, k.Copy, k.Help, k.Quit}
+	return []key.Binding{k.Filter, k.NextMatch, k.Jump, k.Switch, k.Compact, k.Copy, k.Help, k.Quit}
 }
 
 func (k KeyMap) FullHelp() [][]key.Binding {
@@ -56,7 +62,8 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Top, k.Bottom},
 		{k.HalfUp, k.HalfDown, k.Switch},
 		{k.Filter, k.Jump, k.Clear},
-		{k.Annotated, k.Raw, k.JSON, k.XML},
+		{k.NextMatch, k.PrevMatch},
+		{k.Annotated, k.Compact, k.Raw, k.JSON, k.XML},
 		{k.Copy, k.Help, k.Quit},
 	}
 }

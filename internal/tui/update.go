@@ -69,11 +69,7 @@ func (m *Model) handleInputKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.jumpTo(value)
 			return nil
 		}
-		m.query, m.tagFilter = parseFilter(value)
-		cmd := m.rebuildItems()
-		m.list.Select(0)
-		m.refreshDetail()
-		return cmd
+		return m.setFilter(value)
 
 	case "esc":
 		m.closeInput()
@@ -115,22 +111,28 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 
 	case key.Matches(msg, k.Clear):
-		if m.query == "" && m.tagFilter == "" {
+		if m.filter.empty() {
 			return nil
 		}
-		m.query, m.tagFilter = "", ""
-		cmd := m.rebuildItems()
-		m.refreshDetail()
-		return cmd
+		return m.setFilter("")
 
 	case key.Matches(msg, k.Annotated):
 		return m.setMode(render.Annotated)
+	case key.Matches(msg, k.Compact):
+		return m.setMode(render.Compact)
 	case key.Matches(msg, k.Raw):
 		return m.setMode(render.Raw)
 	case key.Matches(msg, k.JSON):
 		return m.setMode(render.JSON)
 	case key.Matches(msg, k.XML):
 		return m.setMode(render.XML)
+
+	case key.Matches(msg, k.NextMatch):
+		m.nextMatch()
+		return nil
+	case key.Matches(msg, k.PrevMatch):
+		m.previousMatch()
+		return nil
 
 	case key.Matches(msg, k.Copy):
 		return m.copyCurrent()
@@ -196,14 +198,17 @@ func (m *Model) closeInput() {
 // starts from the active filter.
 func (m *Model) filterExpression() string {
 	s := ""
-	if m.tagFilter != "" {
-		s = "tag:" + m.tagFilter
+	if m.filter.tag != "" {
+		s = "tag:" + m.filter.tag
 	}
-	if m.query != "" {
+	if m.filter.query != "" {
 		if s != "" {
 			s += " "
 		}
-		s += m.query
+		if m.filter.fullText {
+			s += "all:"
+		}
+		s += m.filter.query
 	}
 	return s
 }

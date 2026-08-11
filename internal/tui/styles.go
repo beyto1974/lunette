@@ -13,6 +13,7 @@ type styles struct {
 	itemSelected lipgloss.Style
 	itemNormal   lipgloss.Style
 	itemOrdinal  lipgloss.Style
+	itemMatch    lipgloss.Style
 	itemYear     lipgloss.Style
 	status       lipgloss.Style
 	prompt       lipgloss.Style
@@ -31,6 +32,7 @@ func newStyles() styles {
 		itemSelected: lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true),
 		itemNormal:   lipgloss.NewStyle().Foreground(lipgloss.Color("252")),
 		itemOrdinal:  lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+		itemMatch:    lipgloss.NewStyle().Foreground(lipgloss.Color("232")).Background(lipgloss.Color("220")),
 		itemYear:     lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
 		status:       lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
 		prompt:       lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true),

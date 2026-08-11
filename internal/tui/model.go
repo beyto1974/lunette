@@ -64,9 +64,15 @@ type Model struct {
 	focus     pane
 	mode      render.Mode
 	inputMode inputMode
-	query     string
-	tagFilter string
-	status    string
+	filter    filterSpec
+	// fullKeys backs the "all:" filter and is built on first use, since it
+	// roughly doubles the memory the records occupy.
+	fullKeys []string
+	// matchLines are the lines of the rendered record holding a filter match,
+	// and matchIdx is the one the viewport is parked on.
+	matchLines []int
+	matchIdx   int
+	status     string
 
 	width, height int
 	singlePane    bool   // terminal too narrow for both panes
@@ -142,20 +148,57 @@ func waitFor(ch chan loadMsg) tea.Cmd {
 	return func() tea.Msg { return <-ch }
 }
 
-// visible reports the records currently passing the filter, as indices into
-// m.records.
+// filterSpec is a parsed filter expression.
+type filterSpec struct {
+	query    string // lowercased free text
+	tag      string // field that must be present
+	fullText bool   // search every subfield, not just the list key
+}
+
+func (f filterSpec) empty() bool { return f.query == "" && f.tag == "" }
+
+// visibleIndices reports the records currently passing the filter, as indices
+// into m.records.
 func (m *Model) visibleIndices() []int {
 	out := make([]int, 0, len(m.records))
 	for i, rec := range m.records {
-		if m.tagFilter != "" && !marcio.HasTag(rec, m.tagFilter) {
+		if m.filter.tag != "" && !marcio.HasTag(rec, m.filter.tag) {
 			continue
 		}
-		if m.query != "" && !strings.Contains(m.keys[i], m.query) {
-			continue
+		if m.filter.query != "" {
+			haystack := m.keys[i]
+			if m.filter.fullText {
+				haystack = m.fullKeys[i]
+			}
+			if !strings.Contains(haystack, m.filter.query) {
+				continue
+			}
 		}
 		out = append(out, i)
 	}
 	return out
+}
+
+// setFilter applies a filter expression and moves the cursor back to the top
+// of the result.
+func (m *Model) setFilter(expr string) tea.Cmd {
+	m.filter = parseFilter(expr)
+	if m.filter.fullText {
+		m.buildFullKeys()
+	}
+	m.list.SetDelegate(compactDelegate{styles: m.st, match: m.filter.query})
+	cmd := m.rebuildItems()
+	m.list.Select(0)
+	m.refreshDetail()
+	return cmd
+}
+
+// buildFullKeys fills the full-text index for any records that do not have one
+// yet, which also covers records that arrived after the last "all:" search.
+func (m *Model) buildFullKeys() {
+	for i := len(m.fullKeys); i < len(m.records); i++ {
+		m.fullKeys = append(m.fullKeys, marcio.FullTextKey(m.records[i]))
+	}
 }
 
 // rebuildItems refreshes the list from the current records and filter.
@@ -191,29 +234,95 @@ func (m *Model) refreshDetail() {
 		m.vp.SetContent("")
 		return
 	}
-	out, err := render.Render(rec, m.mode, render.Options{Color: true, Match: m.query})
+	out, err := render.Render(rec, m.mode, render.Options{Color: true, Match: m.filter.query})
 	if err != nil {
 		out = "render error: " + err.Error()
 	}
 	m.vp.SetContent(out)
 	m.vp.SetYOffset(0)
+	m.findMatches(rec)
 }
 
-// parseFilter splits a filter expression into a free-text query and a tag
-// restriction. "tag:856 brussels" keeps records that carry an 856 field and
-// match "brussels".
-func parseFilter(s string) (query, tag string) {
+// findMatches records which lines of the current rendering hold a match, so
+// that n and N can step between them. The plain rendering is searched rather
+// than the coloured one, whose escape sequences would break the offsets.
+func (m *Model) findMatches(rec *marc.Record) {
+	m.matchLines, m.matchIdx = nil, 0
+	if m.filter.query == "" {
+		return
+	}
+	plain, err := render.Render(rec, m.mode, render.Options{})
+	if err != nil {
+		return
+	}
+	for i, line := range strings.Split(plain, "\n") {
+		if strings.Contains(strings.ToLower(line), m.filter.query) {
+			m.matchLines = append(m.matchLines, i)
+		}
+	}
+	m.scrollToMatch()
+}
+
+// matchCount is how many lines of the current record match the filter.
+func (m *Model) matchCount() int { return len(m.matchLines) }
+
+// matchIndex is the zero-based position within those matches.
+func (m *Model) matchIndex() int { return m.matchIdx }
+
+func (m *Model) nextMatch() {
+	if len(m.matchLines) == 0 {
+		return
+	}
+	m.matchIdx = (m.matchIdx + 1) % len(m.matchLines)
+	m.scrollToMatch()
+}
+
+func (m *Model) previousMatch() {
+	if len(m.matchLines) == 0 {
+		return
+	}
+	m.matchIdx = (m.matchIdx - 1 + len(m.matchLines)) % len(m.matchLines)
+	m.scrollToMatch()
+}
+
+// scrollToMatch parks the current match a third of the way down the pane, so
+// there is context above it as well as below.
+func (m *Model) scrollToMatch() {
+	if len(m.matchLines) == 0 {
+		return
+	}
+	offset := m.matchLines[m.matchIdx] - m.vp.Height()/3
+	if offset < 0 {
+		offset = 0
+	}
+	m.vp.SetYOffset(offset)
+}
+
+// parseFilter reads a filter expression. "tag:856 brussels" keeps records that
+// carry an 856 field and match "brussels" in the list key; an "all:" prefix
+// widens the text search to every subfield in the record.
+func parseFilter(s string) filterSpec {
+	var f filterSpec
 	for _, word := range strings.Fields(s) {
-		if rest, ok := strings.CutPrefix(strings.ToLower(word), "tag:"); ok {
-			tag = rest
+		lower := strings.ToLower(word)
+		if rest, ok := strings.CutPrefix(lower, "all:"); ok {
+			f.fullText = true
+			lower, word = rest, rest
+			if word == "" {
+				continue
+			}
+		}
+		if rest, ok := strings.CutPrefix(lower, "tag:"); ok {
+			f.tag = rest
 			continue
 		}
-		if query != "" {
-			query += " "
+		if f.query != "" {
+			f.query += " "
 		}
-		query += word
+		f.query += word
 	}
-	return strings.ToLower(query), tag
+	f.query = strings.ToLower(f.query)
+	return f
 }
 
 // jumpTo moves the cursor to the record with the given 1-based ordinal.

@@ -143,8 +143,12 @@ func (m *Model) detailPane() string {
 		if cn := m.currentControlNumber(); cn != "" {
 			label += " · " + cn
 		}
-		header = m.st.paneTitle.Render(label) +
-			m.st.meta.Render(" · "+m.mode.String()+" · "+scrollHint(m.vp.ScrollPercent()))
+		meta := " · " + m.mode.String()
+		if n := m.matchCount(); n > 0 {
+			meta += fmt.Sprintf(" · match %d/%d", m.matchIdx+1, n)
+		}
+		meta += " · " + scrollHint(m.vp.ScrollPercent())
+		header = m.st.paneTitle.Render(label) + m.st.meta.Render(meta)
 	}
 
 	inner := strings.Join([]string{truncate(header, m.vp.Width()), m.vp.View()}, "\n")
@@ -183,11 +187,15 @@ func (m *Model) statusLine() string {
 		return m.status
 	}
 	var parts []string
-	if m.tagFilter != "" {
-		parts = append(parts, "tag:"+m.tagFilter)
+	if m.filter.tag != "" {
+		parts = append(parts, "tag:"+m.filter.tag)
 	}
-	if m.query != "" {
-		parts = append(parts, "match:"+m.query)
+	if m.filter.query != "" {
+		scope := "match:"
+		if m.filter.fullText {
+			scope = "all:"
+		}
+		parts = append(parts, scope+m.filter.query)
 	}
 	if len(parts) == 0 {
 		return "no filter"

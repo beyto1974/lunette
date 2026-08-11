@@ -88,10 +88,15 @@ func TestFilterNarrowsList(t *testing.T) {
 		{"tag:856 transmission", 1},
 		{"tag:856 kloza", 0},
 		{"zzzz", 0},
+		// "privacy" lives in a 650, which the list key does not cover.
+		{"privacy", 0},
+		{"all:privacy", 1},
+		{"all:transmission", 1},
+		{"tag:650 all:privacy", 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.expr, func(t *testing.T) {
-			m.query, m.tagFilter = parseFilter(tt.expr)
+			m.setFilter(tt.expr)
 			m.rebuildItems()
 			if got := len(m.list.Items()); got != tt.want {
 				t.Errorf("filter %q kept %d records, want %d", tt.expr, got, tt.want)
@@ -123,8 +128,7 @@ func TestJumpTo(t *testing.T) {
 	}
 
 	// A record filtered out cannot be jumped to.
-	m.query, m.tagFilter = parseFilter("tag:856")
-	m.rebuildItems()
+	m.setFilter("tag:856")
 	m.jumpTo("3")
 	if !strings.Contains(m.status, "not in the current filter") {
 		t.Errorf("status = %q, want the filter explanation", m.status)
@@ -136,27 +140,33 @@ func TestParseFilter(t *testing.T) {
 		in        string
 		wantQuery string
 		wantTag   string
+		wantAll   bool
 	}{
-		{"", "", ""},
-		{"brussels", "brussels", ""},
-		{"BRUSSELS", "brussels", ""},
-		{"tag:856", "", "856"},
-		{"tag:856 brussels", "brussels", "856"},
-		{"brussels tag:856", "brussels", "856"},
-		{"two words", "two words", ""},
+		{"", "", "", false},
+		{"brussels", "brussels", "", false},
+		{"BRUSSELS", "brussels", "", false},
+		{"tag:856", "", "856", false},
+		{"tag:856 brussels", "brussels", "856", false},
+		{"brussels tag:856", "brussels", "856", false},
+		{"two words", "two words", "", false},
+		{"all:brussels", "brussels", "", true},
+		{"all:tag:856", "", "856", true},
+		{"all: brussels", "brussels", "", true},
+		{"tag:856 all:brussels", "brussels", "856", true},
 	}
 	for _, tt := range tests {
-		q, tag := parseFilter(tt.in)
-		if q != tt.wantQuery || tag != tt.wantTag {
-			t.Errorf("parseFilter(%q) = (%q, %q), want (%q, %q)", tt.in, q, tag, tt.wantQuery, tt.wantTag)
+		f := parseFilter(tt.in)
+		if f.query != tt.wantQuery || f.tag != tt.wantTag || f.fullText != tt.wantAll {
+			t.Errorf("parseFilter(%q) = (%q, %q, %v), want (%q, %q, %v)",
+				tt.in, f.query, f.tag, f.fullText, tt.wantQuery, tt.wantTag, tt.wantAll)
 		}
 	}
 }
 
 func TestFilterExpressionRoundTrip(t *testing.T) {
 	m := newLoaded(t)
-	for _, expr := range []string{"", "brussels", "tag:856", "tag:856 brussels"} {
-		m.query, m.tagFilter = parseFilter(expr)
+	for _, expr := range []string{"", "brussels", "tag:856", "tag:856 brussels", "all:brussels", "tag:856 all:brussels"} {
+		m.setFilter(expr)
 		if got := m.filterExpression(); got != expr {
 			t.Errorf("filterExpression() = %q, want %q", got, expr)
 		}
@@ -182,4 +192,98 @@ func TestClamp(t *testing.T) {
 	if clamp(5, 10, 20) != 10 || clamp(25, 10, 20) != 20 || clamp(15, 10, 20) != 15 {
 		t.Error("clamp is wrong")
 	}
+}
+
+// With a filter active the list must show where each record matched, not just
+// that it did.
+func TestListHighlightsMatches(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	m.setFilter("")
+	plain := m.list.View()
+	m.setFilter("transmission")
+	highlighted := m.list.View()
+
+	if highlighted == plain {
+		t.Error("the list looks the same with and without a filter")
+	}
+	// The list pane truncates, so compare against what fits.
+	if !strings.Contains(stripANSI(highlighted), "Identification of Trans") {
+		t.Errorf("highlighting mangled the title:\n%s", stripANSI(highlighted))
+	}
+	// Truncation must not have cut an escape sequence in half: after stripping
+	// complete sequences, no escape byte may remain.
+	if strings.ContainsRune(stripANSI(highlighted), 0x1b) {
+		t.Error("highlighted list output has an unterminated escape sequence")
+	}
+}
+
+func TestMatchNavigation(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// No filter, no matches to step through.
+	if got := m.matchCount(); got != 0 {
+		t.Errorf("matchCount without a filter = %d, want 0", got)
+	}
+
+	m.setFilter("transmission")
+	if got := m.matchCount(); got < 1 {
+		t.Fatalf("matchCount = %d, want at least 1 in the selected record", got)
+	}
+
+	// "identification" appears in both 245 $a and the search key; use a term
+	// with several hits in the record to exercise wrapping.
+	m.setFilter("de")
+	n := m.matchCount()
+	if n < 2 {
+		t.Skipf("fixture has only %d matches for 'de'", n)
+	}
+	first := m.matchIndex()
+	m.nextMatch()
+	if m.matchIndex() == first {
+		t.Error("nextMatch did not move")
+	}
+	for i := 0; i < n; i++ {
+		m.nextMatch()
+	}
+	if m.matchIndex() != m.matchIndex()%n {
+		t.Error("nextMatch did not wrap")
+	}
+	m.previousMatch()
+	if m.matchIndex() < 0 || m.matchIndex() >= n {
+		t.Errorf("previousMatch left the index at %d, outside 0..%d", m.matchIndex(), n-1)
+	}
+}
+
+// The detail header reports the match position so the user knows how far
+// through the record they are.
+func TestMatchCounterInHeader(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.setFilter("transmission")
+
+	header := stripANSI(m.detailPane())
+	if !strings.Contains(header, "match 1/") {
+		t.Errorf("detail header does not report the match position:\n%s", header)
+	}
+}
+
+// stripANSI removes CSI sequences so tests can compare visible text.
+func stripANSI(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
+			i += 2
+			for i < len(s) && (s[i] < '@' || s[i] > '~') {
+				i++
+			}
+			i++
+			continue
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
 }
