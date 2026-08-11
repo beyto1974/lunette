@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # gomarc requires this; keep it in step with go.mod.
+  GO_VERSION: "1.25.x"
+
+jobs:
+  test:
+    name: Test and coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed for: $unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test with coverage
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Coverage summary
+        run: |
+          go tool cover -func=coverage.out | tail -20 >> "$GITHUB_STEP_SUMMARY"
+          total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$NF); print $NF}')"
+          echo "total coverage: ${total}%"
+          echo "TOTAL_COVERAGE=${total}" >> "$GITHUB_ENV"
+
+      - name: Enforce coverage floor
+        run: |
+          floor=70
+          awk -v got="$TOTAL_COVERAGE" -v want="$floor" 'BEGIN {
+            if (got + 0 < want + 0) {
+              printf "coverage %.1f%% is below the %d%% floor\n", got, want
+              exit 1
+            }
+            printf "coverage %.1f%% meets the %d%% floor\n", got, want
+          }'
+
+      - name: Regenerate the coverage badge
+        run: ./scripts/coverage-badge.sh coverage.out docs/coverage.svg
+
+      - name: Upload coverage artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage.out
+            docs/coverage.svg
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: go build -o "marcview-${GOOS}-${GOARCH}" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marcview-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: marcview-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  shellcheck:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck scripts/coverage-badge.sh

@@ -1,0 +1,21 @@
+# Build output
+marcview
+marcview-*-*
+
+# Test and coverage artefacts
+coverage.out
+*.test
+
+# MARC data brought in for local testing (fixtures are under testdata/)
+/*.mrc
+/*.marcxml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
