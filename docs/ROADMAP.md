@@ -22,7 +22,49 @@ because every later action ("filter by this", "copy this") needs a notion of
 Implementation: keep the rendered record as `[]fieldLine` with a field index per
 line rather than one string, and drive the viewport from that.
 
-### 1.2 Repository-wide statistics view — S
+### 1.2 Compact record view — S
+
+A fifth render mode, bound to `c`, that puts one field per line with its
+subfields inline: `245 10 $a Title $b subtitle`. The annotated view spends
+three or four lines on a field with two subfields, so a 30-field record needs
+scrolling to see at all; compact fits most records on one screen, which is what
+you want when comparing records rather than reading one.
+
+It sits between raw and annotated: raw is dense but shows no labels and no
+`#` for blank indicators, annotated is readable but sparse. Compact keeps the
+indicator convention and the colour scheme, drops the label line and the
+per-subfield line breaks. A `--compact` flag on `show` gives the same density
+to piped output, which is also the form worth grepping.
+
+Implementation: a fourth branch in `render.Render` reusing `palette`; the mode
+list, key map and help entries all extend by one. Roughly 60 lines plus tests.
+Worth pairing with a width-aware fold so long fields wrap under an indent
+rather than being cut off.
+
+### 1.3 Search highlighting across both panes — S
+
+Filter matches are highlighted in the record pane today, but not in the list,
+so with a filter active you can see *that* a record matched without seeing
+*where*. Three gaps worth closing:
+
+1. **Highlight in the list.** The delegate already truncates titles; wrapping
+   the matched span in the match style before truncation is the same work
+   `palette.value` does for field values. Truncation must not cut a span
+   mid-escape — measure on the plain string, style afterwards.
+2. **Match navigation inside a record.** `n` and `N` to jump the viewport
+   between hits, with a `3/7 matches` counter in the pane header. The viewport
+   bubble already has `SetHighlights` and `HighlightNext`/`HighlightPrevious`,
+   so this is mostly plumbing the match offsets in.
+3. **Match beyond the search key.** Filtering matches against the precomputed
+   key (control number, title, author, year), so a term appearing only in a 520
+   summary or a 650 subject does not match at all. An opt-in `all:` prefix that
+   searches the full field text — precomputed once per record at load — makes
+   the filter honest, at the cost of a larger index.
+
+Together these turn the filter from "which records" into "where in them", which
+is what a search is for.
+
+### 1.4 Repository-wide statistics view — S
 
 A `stats` subcommand and an in-app panel: field frequency (how many records
 carry 856, 100, 650), average field count, records per year, encoding-level
@@ -30,7 +72,7 @@ distribution, language codes. Cataloguers ask "what does this harvest actually
 contain?" far more often than they ask about a single record, and it is a
 by-product of a load we already perform.
 
-### 1.3 MARC validation rules — M
+### 1.5 MARC validation rules — M
 
 `validate` currently only reports records that fail to *decode*. Records that
 decode fine can still be wrong: missing 245, no 008, indicators outside the
@@ -39,7 +81,7 @@ A small rule table over the fields already parsed would catch these, with
 `--strict` for a non-zero exit. This is the difference between "the bytes
 parsed" and "the record is usable".
 
-### 1.4 Diff two records or two files — M
+### 1.6 Diff two records or two files — M
 
 Compare the same control number across two harvests, or two records in one
 file, field by field. Anyone re-harvesting a set periodically needs to see what
