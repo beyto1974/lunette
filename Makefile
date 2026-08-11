@@ -1,4 +1,4 @@
-.PHONY: help build install test race cover badge golden lint fmt clean
+.PHONY: help build install test race cover badge golden screenshots lint fmt clean
 
 BADGE   := docs/coverage.svg
 PROFILE := coverage.out
@@ -25,6 +25,9 @@ cover: ## Run tests with coverage and print the total
 golden: ## Rewrite the golden TUI frames after an intended layout change
 	go test ./internal/tui/ -run TestGoldenFrames -update
 	@echo "review the diff before committing: git diff internal/tui/testdata/golden"
+
+screenshots: ## Regenerate the README screenshots
+	./scripts/screenshots.sh
 
 badge: cover ## Regenerate docs/coverage.svg from the coverage profile
 	./scripts/coverage-badge.sh $(PROFILE) $(BADGE)
