@@ -83,6 +83,30 @@ func Render(rec *marc.Record, mode Mode, o Options) (string, error) {
 	if rec == nil {
 		return "", fmt.Errorf("nil record")
 	}
+	lay, err := RenderLayout(rec, mode, o)
+	return lay.Text, err
+}
+
+// FieldSpan is the half-open range of rendered lines one field occupies.
+type FieldSpan struct {
+	Tag   string
+	Start int
+	End   int
+}
+
+// Layout is a rendering together with the lines each field occupies, which is
+// what lets the browser put a cursor on a field rather than on a line.
+// JSON and XML carry no spans: they have no field structure to point at.
+type Layout struct {
+	Text   string
+	Fields []FieldSpan
+}
+
+// RenderLayout produces the text for one record and the field spans within it.
+func RenderLayout(rec *marc.Record, mode Mode, o Options) (Layout, error) {
+	if rec == nil {
+		return Layout{}, fmt.Errorf("nil record")
+	}
 	switch mode {
 	case Annotated:
 		return annotated(rec, o), nil
@@ -93,23 +117,23 @@ func Render(rec *marc.Record, mode Mode, o Options) (string, error) {
 	case JSON:
 		s, err := rec.AsJSON()
 		if err != nil {
-			return "", err
+			return Layout{}, err
 		}
 		if o.Indent {
 			s = indentJSON(s)
 		}
-		return structured(s, "json", o), nil
+		return Layout{Text: structured(s, "json", o)}, nil
 	case XML:
 		s, err := recordXML(rec)
 		if err != nil {
-			return "", err
+			return Layout{}, err
 		}
 		if o.Indent {
 			s = indentXML(s)
 		}
-		return structured(s, "xml", o), nil
+		return Layout{Text: structured(s, "xml", o)}, nil
 	default:
-		return "", fmt.Errorf("unknown render mode %d", mode)
+		return Layout{}, fmt.Errorf("unknown render mode %d", mode)
 	}
 }
 
@@ -157,14 +181,26 @@ func chromaHighlight(source, lexer string, o Options) string {
 
 // raw is the pymarc/yaz-marcdump mnemonic form, with the tag and subfield
 // delimiters tinted when colour is on.
-func raw(rec *marc.Record, o Options) string {
-	s := rec.String()
-	if !o.Color {
-		return s
+func raw(rec *marc.Record, o Options) Layout {
+	text := rec.String()
+	lines := strings.Split(text, "\n")
+
+	// Breaker format puts each field on its own line, after the leader line.
+	var spans []FieldSpan
+	for i, line := range lines {
+		if len(line) < 4 || line[0] != '=' || !isTag(line[1:4]) {
+			continue
+		}
+		spans = append(spans, FieldSpan{Tag: line[1:4], Start: i, End: i + 1})
 	}
+
+	if !o.Color {
+		return Layout{Text: text, Fields: spans}
+	}
+
 	p := newPalette()
 	var b strings.Builder
-	for i, line := range strings.Split(s, "\n") {
+	for i, line := range lines {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
@@ -176,27 +212,45 @@ func raw(rec *marc.Record, o Options) string {
 		}
 		b.WriteString(p.leader.Render(line))
 	}
-	return b.String()
+	return Layout{Text: b.String(), Fields: spans}
 }
+
+// builder accumulates rendered lines and counts them, so a caller can record
+// which lines a field occupied.
+type builder struct {
+	b     strings.Builder
+	lines int
+}
+
+func (bb *builder) writeLine(s string) {
+	bb.b.WriteString(s)
+	bb.b.WriteByte('\n')
+	bb.lines++
+}
+
+func (bb *builder) String() string { return bb.b.String() }
 
 // compact is one field per line with its subfields inline. It keeps the tag,
 // the '#' convention for blank indicators and the colours of the annotated
 // view, but drops the labels and the line breaks - the density you want when
 // scanning or comparing records rather than reading one.
-func compact(rec *marc.Record, o Options) string {
+func compact(rec *marc.Record, o Options) Layout {
 	p := newPalette()
 	if !o.Color {
 		p = plainPalette()
 	}
 
-	var b strings.Builder
+	var b builder
+	var spans []FieldSpan
 	if rec.Leader != nil {
 		writeWrapped(&b, p.tag.Render("LDR")+"    ", p.leader.Render(rec.Leader.String()), tagIndent, o.Width)
 	}
 
 	for _, f := range rec.Fields {
+		start := b.lines
 		if f.IsControlField() {
 			writeWrapped(&b, p.tag.Render(f.Tag)+"    ", p.value(f.Data, o.Match), tagIndent, o.Width)
+			spans = append(spans, FieldSpan{Tag: f.Tag, Start: start, End: b.lines})
 			continue
 		}
 
@@ -210,19 +264,21 @@ func compact(rec *marc.Record, o Options) string {
 			parts = append(parts, p.code.Render("$"+sf.Code)+" "+p.value(sf.Value, o.Match))
 		}
 		writeWrapped(&b, prefix, strings.Join(parts, " "), tagIndent, o.Width)
+		spans = append(spans, FieldSpan{Tag: f.Tag, Start: start, End: b.lines})
 	}
-	return strings.TrimRight(b.String(), "\n")
+	return Layout{Text: strings.TrimRight(b.String(), "\n"), Fields: spans}
 }
 
 // annotated is the reading view: decoded leader, then every field with its
 // MARC21 label and one subfield per line.
-func annotated(rec *marc.Record, o Options) string {
+func annotated(rec *marc.Record, o Options) Layout {
 	p := newPalette()
 	if !o.Color {
 		p = plainPalette()
 	}
 
-	var b strings.Builder
+	var b builder
+	var spans []FieldSpan
 	writeLeader(&b, rec, p, o.Width)
 
 	// 880 fields carry the vernacular form of another field. Render each one
@@ -243,17 +299,19 @@ func annotated(rec *marc.Record, o Options) string {
 		if f.Tag == "880" && linked[f] {
 			continue // rendered next to its partner below
 		}
+		start := b.lines
 		writeField(&b, f, p, o, false)
 		if partners, err := rec.GetLinkedFields(f); err == nil {
 			for _, l := range partners {
 				writeField(&b, l, p, o, true)
 			}
 		}
+		spans = append(spans, FieldSpan{Tag: f.Tag, Start: start, End: b.lines})
 	}
-	return strings.TrimRight(b.String(), "\n")
+	return Layout{Text: strings.TrimRight(b.String(), "\n"), Fields: spans}
 }
 
-func writeLeader(b *strings.Builder, rec *marc.Record, p palette, width int) {
+func writeLeader(b *builder, rec *marc.Record, p palette, width int) {
 	if rec.Leader == nil {
 		return
 	}
@@ -267,7 +325,7 @@ func writeLeader(b *strings.Builder, rec *marc.Record, p palette, width int) {
 		describe(l.EncodingLevel(), encodingLevel),
 		describe(l.CatalogingForm(), catalogingForm),
 	)), tagIndent, width)
-	b.WriteByte('\n')
+	b.writeLine("")
 }
 
 // Continuation indents: under the label, past "245 10 ", and under a subfield
@@ -279,7 +337,7 @@ const (
 
 // writeField renders one field: header line, then subfields indented under it.
 
-func writeField(b *strings.Builder, f *marc.Field, p palette, o Options, vernacular bool) {
+func writeField(b *builder, f *marc.Field, p palette, o Options, vernacular bool) {
 	name := TagName(f.Tag)
 	if vernacular && name != "" {
 		name += " (vernacular)"
@@ -310,11 +368,9 @@ func writeField(b *strings.Builder, f *marc.Field, p palette, o Options, vernacu
 // than under the tag. Width 0 disables wrapping. Measurement is ANSI-aware, so
 // styled text wraps at the same column as plain text - which also keeps the
 // line numbers the match navigator computes from the plain rendering valid.
-func writeWrapped(b *strings.Builder, prefix, body string, indent, width int) {
+func writeWrapped(b *builder, prefix, body string, indent, width int) {
 	if width <= 0 || ansi.StringWidth(prefix)+ansi.StringWidth(body) <= width {
-		b.WriteString(prefix)
-		b.WriteString(body)
-		b.WriteByte('\n')
+		b.writeLine(prefix + body)
 		return
 	}
 
@@ -329,12 +385,10 @@ func writeWrapped(b *strings.Builder, prefix, body string, indent, width int) {
 	pad := strings.Repeat(" ", indent)
 	for i, line := range strings.Split(wrapped, "\n") {
 		if i == 0 {
-			b.WriteString(prefix)
+			b.writeLine(prefix + line)
 		} else {
-			b.WriteString(pad)
+			b.writeLine(pad + line)
 		}
-		b.WriteString(line)
-		b.WriteByte('\n')
 	}
 }
 
