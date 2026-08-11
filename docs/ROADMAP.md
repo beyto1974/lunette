@@ -182,15 +182,20 @@ subfield code, label, leader, match) to colours, plus a `--no-color` flag.
 Terminal themes vary enough that the fixed ANSI-256 choices will not suit
 everyone.
 
+### ~~2.6a Follow a growing file~~ — done
+
+`marcview -follow harvest.mrc` reads records as a harvest appends them, taking
+only whole records so a half-written one is not mistaken for damage.
+
 ### 2.6 Export the current filter from the TUI — S
 
 `e` in the browser writes the filtered set to a file using the export package
 that already exists. Closes the loop between browsing and extracting.
 
-### 2.7 Follow 856 URLs — S
+### ~~2.7 Follow 856 URLs~~ — done
 
-`o` opens the electronic-location URL in the system browser. Trivial with
-`xdg-open`/`open`, genuinely useful for a repository of links.
+`o` opens the selected field's URL, or the record's 856, through xdg-open, open
+or rundll32.
 
 ### ~~2.8 Encoding diagnostics~~ — done
 

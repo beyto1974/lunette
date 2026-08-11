@@ -16,8 +16,8 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 
 ## Views
 
-- [ ] Act on the selected field: filter by this subject, open this 856. The
-      field cursor exists now, so these are small additions.
+- [ ] Follow mode polls once a second; watch the file with inotify instead
+      where the platform offers it.
 
 ## Testing
 

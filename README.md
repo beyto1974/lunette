@@ -41,7 +41,8 @@ No runtime dependencies — a single static binary.
 
 ```bash
 marcview records.mrc
-marcview records.marcxml    # the format is sniffed from the first bytes
+marcview records.marcxml            # the format is sniffed from the first bytes
+marcview -follow harvest.mrc        # keep reading as a harvest appends records
 ```
 
 | Key | Action |
@@ -57,6 +58,8 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `esc` | Clear the filter |
 | `:` | Jump to a record number |
 | `a` `c` `r` `J` `X` | Annotated, compact, raw breaker, JSON, XML views |
+| `f` | Filter by the selected field — same tag, same text |
+| `o` | Open the selected field's URL, or the record's 856, in a browser |
 | `y` | Copy — the selected field with the record focused, the whole record otherwise (OSC 52, works over SSH) |
 | `?` | Toggle full help (the short row is always visible) |
 | `q`, `ctrl+c` | Quit |
@@ -65,6 +68,12 @@ The record pane has a cursor of its own: with it focused, `↑`/`↓` step from
 field to field rather than line to line, the selected field is marked in the
 gutter across every line it wraps onto, and `y` copies just that field. The
 structured views have no field structure, so there the same keys scroll.
+
+`-follow` watches a binary MARC21 file that is still being written and picks up
+records as they land, which is what you want while `harvest-marc21.sh` is
+running. Only whole records are read: a half-written one at the end of the file
+is left for the next poll rather than reported as damage. A file that shrinks
+has been replaced rather than appended to, so following stops and says so.
 
 `z` collapses the browser to a single pane on any terminal — `enter` opens the
 record, `esc` returns to the list — which is also what happens automatically

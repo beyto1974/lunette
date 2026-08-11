@@ -22,9 +22,9 @@ marcview · ../../testdata/sample.mrc · MARC21 · 3 records
 │                                    ││                                                            │
 ╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────╯
 no filter
-↑/k up             ^u  half page up      n next match        a annotated
-↓/j down           ^d  half page down    N previous match    c compact  
-g   top            /   filter            y copy record       r raw      
-G   bottom         :   jump to record    ? help              J json     
-tab switch pane    esc clear filter      q quit              X xml      
-z   one pane       s   search scope                                     
+↑/k up             ^u  half page up      n next match         y copy record    a annotated
+↓/j down           ^d  half page down    N previous match     ? help           c compact  
+g   top            /   filter            f filter by field    q quit           r raw      
+G   bottom         :   jump to record    o open url                            J json     
+tab switch pane    esc clear filter                                            X xml      
+z   one pane       s   search scope                                                       

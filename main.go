@@ -51,7 +51,7 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `marcview - browse and convert MARC21 files
 
 Usage:
-  marcview <file>                        open the dual-pane browser
+  marcview [-follow] <file>              open the dual-pane browser
   marcview show [flags] <file>           print records to stdout
   marcview export [flags] <file>         convert records to another format
   marcview validate <file>               report records that fail to decode
@@ -59,6 +59,10 @@ Usage:
 
 Input may be binary MARC21 (.mrc) or MARCXML; the format is detected from the
 file's first bytes.
+
+browser flags:
+  -follow                                keep reading a binary MARC21 file as a
+                                         harvest appends records to it
 
 show flags:
   -mode annotated|compact|raw|json|xml   rendering (default annotated)
@@ -83,13 +87,19 @@ export flags:
 
 func runView(args []string) error {
 	fs := flag.NewFlagSet("marcview", flag.ContinueOnError)
+	follow := fs.Bool("follow", false, "keep reading the file as records are appended")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
 	}
-	return tui.Run(fs.Arg(0))
+
+	var opts []tui.Option
+	if *follow {
+		opts = append(opts, tui.WithFollow())
+	}
+	return tui.Run(fs.Arg(0), opts...)
 }
 
 // searchScope resolves the -scope flag, with -all as a shorthand kept for the

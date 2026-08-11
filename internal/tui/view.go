@@ -98,15 +98,27 @@ func (m *Model) View() tea.View {
 }
 
 func (m *Model) titleBar() string {
+	full := m.buildTitleBar(m.path)
+	if m.width > 0 && lipglossWidth(full) > m.width {
+		// The counts matter more than where the file lives.
+		return truncate(m.buildTitleBar(filepath.Base(m.path)), m.width)
+	}
+	return full
+}
+
+func (m *Model) buildTitleBar(path string) string {
 	parts := []string{
 		m.st.titleBar.Render("marcview"),
-		m.st.fileName.Render(m.titlePath()),
+		m.st.fileName.Render(path),
 	}
 
 	meta := []string{m.format.String()}
-	if m.loading {
+	switch {
+	case m.loading:
 		meta = append(meta, fmt.Sprintf("loading… %d records", len(m.records)))
-	} else {
+	case m.following:
+		meta = append(meta, fmt.Sprintf("%d records · following", len(m.records)))
+	default:
 		meta = append(meta, fmt.Sprintf("%d records", len(m.records)))
 	}
 	if shown := len(m.list.Items()); shown != len(m.records) {
@@ -124,17 +136,7 @@ func (m *Model) titleBar() string {
 		parts = append(parts, m.st.warn.Render(m.loadErr.Error()))
 	}
 
-	return truncate(strings.Join(parts, m.st.meta.Render(" · ")), m.width)
-}
-
-// titlePath is the file name alone once the directory would crowd out the
-// counts, which matter more than where the file lives.
-func (m *Model) titlePath() string {
-	const roomForTheRest = 34
-	if m.width > 0 && len(m.path)+roomForTheRest > m.width {
-		return filepath.Base(m.path)
-	}
-	return m.path
+	return strings.Join(parts, m.st.meta.Render(" · "))
 }
 
 func (m *Model) listPane() string {
