@@ -23,6 +23,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loadMsg:
 		return m, m.handleLoad(msg)
 
+	case followMsg:
+		return m, m.handleFollow(msg)
+
 	case tea.KeyPressMsg:
 		if m.inputMode != inputNone {
 			return m, m.handleInputKey(msg)
@@ -36,24 +39,37 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleLoad folds one streamed batch into the model.
-func (m *Model) handleLoad(msg loadMsg) tea.Cmd {
-	// The final message carries no batch, so keep what earlier ones reported.
-	if msg.batch.Format != marcio.FormatUnknown {
-		m.format = msg.batch.Format
+// appendBatch adds a batch of records, their search keys and any issues, and
+// advances the follow offset past the records it consumed.
+func (m *Model) appendBatch(b marcio.Batch) {
+	// A batch carrying no records - the final one - reports no format either,
+	// so keep what earlier batches said.
+	if b.Format != marcio.FormatUnknown {
+		m.format = b.Format
 	}
-	m.forcedUTF8 = m.forcedUTF8 || msg.batch.ForcedUTF8
-	for _, rec := range msg.batch.Records {
+	m.forcedUTF8 = m.forcedUTF8 || b.ForcedUTF8
+	for _, rec := range b.Records {
 		m.records = append(m.records, rec)
 		m.keys = append(m.keys, marcio.SearchKey(rec))
 	}
-	m.issues = append(m.issues, msg.batch.Issues...)
+	m.issues = append(m.issues, b.Issues...)
+	if m.filter.scope.NeedsFullText() {
+		m.buildFullKeys()
+	}
+}
+
+// handleLoad folds one streamed batch into the model.
+func (m *Model) handleLoad(msg loadMsg) tea.Cmd {
+	m.appendBatch(msg.batch)
 
 	if msg.done {
 		m.loading = false
 		m.loadErr = msg.err
 		cmd := m.rebuildItems()
 		m.refreshDetail()
+		if m.following {
+			return tea.Batch(cmd, m.schedulePoll())
+		}
 		return cmd
 	}
 
@@ -166,6 +182,12 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 
 	case key.Matches(msg, k.Scope):
 		return m.cycleScope()
+
+	case key.Matches(msg, k.FieldFind):
+		return m.filterBySelectedField()
+
+	case key.Matches(msg, k.OpenURL):
+		return m.openSelectedURL()
 
 	case key.Matches(msg, k.Copy):
 		return m.copyCurrent()

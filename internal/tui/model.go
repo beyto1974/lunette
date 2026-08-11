@@ -4,6 +4,7 @@ package tui
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -79,8 +80,14 @@ type Model struct {
 	fields      []render.FieldSpan
 	fieldCursor int
 	// zoom forces the single-pane layout on a terminal wide enough for two.
-	zoom   bool
-	status string
+	zoom bool
+	// openURL hands a link to the desktop; tests replace it.
+	openURL func(string) error
+	// following polls the file for records appended after the initial load,
+	// which is how a harvest still being written can be browsed live.
+	following    bool
+	followOffset int64
+	status       string
 
 	width, height int
 	bodyHeight    int    // rows the panes occupy, borders included
@@ -92,8 +99,14 @@ type Model struct {
 	ch chan loadMsg
 }
 
+// Option configures a browser.
+type Option func(*Model)
+
+// WithFollow keeps reading the file as records are appended to it.
+func WithFollow() Option { return func(m *Model) { m.following = true } }
+
 // New builds a browser over path and starts loading it in the background.
-func New(path string) (*Model, error) {
+func New(path string, opts ...Option) (*Model, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -125,10 +138,13 @@ func New(path string) (*Model, error) {
 		loading: true,
 		ch:      make(chan loadMsg, 8),
 	}
+	for _, opt := range opts {
+		opt(m)
+	}
 
 	go func() {
 		defer f.Close()
-		err := marcio.Stream(f, batchSize, func(b marcio.Batch) error {
+		err := marcio.Stream(m.initialReader(f), batchSize, func(b marcio.Batch) error {
 			m.ch <- loadMsg{batch: b}
 			return nil
 		})
@@ -138,9 +154,25 @@ func New(path string) (*Model, error) {
 	return m, nil
 }
 
+// initialReader bounds the first read. When following a file that is still
+// being written, the last record is usually half there; reading it would
+// report a harvest in progress as a damaged record, and the same bytes would
+// then be read again by the first poll.
+func (m *Model) initialReader(f *os.File) io.Reader {
+	if !m.following {
+		return f
+	}
+	complete, err := marcio.CompletePrefixFile(m.path)
+	if err != nil {
+		return f
+	}
+	m.followOffset = complete
+	return io.LimitReader(f, complete)
+}
+
 // Run opens path in the browser and blocks until the user quits.
-func Run(path string) error {
-	m, err := New(path)
+func Run(path string, opts ...Option) error {
+	m, err := New(path, opts...)
 	if err != nil {
 		return err
 	}
@@ -185,6 +217,9 @@ func (m *Model) visibleIndices() []int {
 // setFilter applies a filter expression and moves the cursor back to the top
 // of the result.
 func (m *Model) setFilter(expr string) tea.Cmd {
+	// The status line falls back to describing the filter, which is more use
+	// than whatever message preceded it.
+	m.status = ""
 	m.filter = parseFilter(expr)
 	if m.filter.scope.NeedsFullText() {
 		m.buildFullKeys()

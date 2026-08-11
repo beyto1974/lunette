@@ -17,6 +17,8 @@ type KeyMap struct {
 	Clear     key.Binding
 	Scope     key.Binding
 	Zoom      key.Binding
+	FieldFind key.Binding
+	OpenURL   key.Binding
 	Annotated key.Binding
 	Compact   key.Binding
 	Raw       key.Binding
@@ -43,6 +45,8 @@ func defaultKeyMap() KeyMap {
 		Clear:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
 		Scope:     key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "search scope")),
 		Zoom:      key.NewBinding(key.WithKeys("z"), key.WithHelp("z", "one pane")),
+		FieldFind: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter by field")),
+		OpenURL:   key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "open url")),
 		Annotated: key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "annotated")),
 		Compact:   key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "compact")),
 		Raw:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "raw")),
@@ -68,7 +72,8 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Top, k.Bottom, k.Switch, k.Zoom},
 		{k.HalfUp, k.HalfDown, k.Filter, k.Jump, k.Clear, k.Scope},
-		{k.NextMatch, k.PrevMatch, k.Copy, k.Help, k.Quit},
+		{k.NextMatch, k.PrevMatch, k.FieldFind, k.OpenURL},
+		{k.Copy, k.Help, k.Quit},
 		{k.Annotated, k.Compact, k.Raw, k.JSON, k.XML},
 	}
 }
