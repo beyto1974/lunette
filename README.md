@@ -59,6 +59,11 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `?` | Toggle full help (the short row is always visible) |
 | `q`, `ctrl+c` | Quit |
 
+Each pane carries a header: the list shows the cursor position and how far
+through the file it is (`1204/5572 · 22%`, plus `of 5572` when a filter is
+hiding records), the record pane shows the record number, its control number,
+the view mode and the scroll position.
+
 The mouse works too: click a record to select it, click a pane to focus it, and
 scroll the wheel over either pane — the wheel moves what is under the pointer
 without stealing focus, so you can skim the record list while reading a record.
