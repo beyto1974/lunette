@@ -1,4 +1,4 @@
-marcview · ../../testdata/sample.mrc · MARC21 · 3 records
+lunette · ../../testdata/sample.mrc · MARC21 · 3 records
 ╭────────────────────────────────────╮╭────────────────────────────────────────────────────────────╮
 │2/3 · 66%                           ││record 2/3 · field 1/5 · compact · 100% · rec-0002          │
 │  00001 Identification of Tran… 2002││  LDR    00209nab a2200085 a 4500                           │

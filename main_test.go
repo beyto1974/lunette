@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/beyto1974/marcview/internal/marcio"
+	"github.com/beyto1974/lunette/internal/marcio"
 )
 
 const sample = "testdata/sample.mrc"
@@ -289,7 +289,7 @@ func TestHelp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("help: %v", err)
 	}
-	for _, want := range []string{"marcview", "show", "export", "validate"} {
+	for _, want := range []string{"lunette", "show", "export", "validate"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help does not mention %q", want)
 		}

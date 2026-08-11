@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/beyto1974/marcview/internal/marcio"
+	"github.com/beyto1974/lunette/internal/marcio"
 )
 
 func press(m *Model, s string) {

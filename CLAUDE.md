@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-`marcview`, a Go module (`github.com/beyto1974/marcview`): a Bubble Tea
+`lunette`, a Go module (`github.com/beyto1974/lunette`): a Bubble Tea
 dual-pane MARC21 browser plus `show`, `export` and `validate` subcommands.
 It reads binary MARC21 and MARCXML and converts between them.
 
@@ -20,7 +20,7 @@ make race        # go test -race ./...
 make cover       # coverage profile and total
 make badge       # regenerate docs/coverage.svg
 make lint        # go vet + gofmt check
-make build       # ./marcview
+make build       # ./lunette
 ```
 
 Run a single package: `go test ./internal/render/ -run TestAnnotated -v`.

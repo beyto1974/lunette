@@ -1,4 +1,4 @@
-# marcview
+# lunette
 
 A dual-pane terminal browser for MARC21 files: record list on the left, the
 selected record on the right. Reads binary MARC21 (`.mrc`) and MARCXML, and
@@ -25,13 +25,13 @@ Needs **Go 1.25** or newer (a requirement inherited from `gomarc`; older
 toolchains download it automatically).
 
 ```bash
-go install github.com/beyto1974/marcview@latest
+go install github.com/beyto1974/lunette@latest
 ```
 
 Or from a clone:
 
 ```bash
-make build      # ./marcview
+make build      # ./lunette
 make install    # into GOBIN
 ```
 
@@ -40,9 +40,9 @@ No runtime dependencies — a single static binary.
 ## Browse
 
 ```bash
-marcview records.mrc
-marcview records.marcxml            # the format is sniffed from the first bytes
-marcview -follow harvest.mrc        # keep reading as a harvest appends records
+lunette records.mrc
+lunette records.marcxml            # the format is sniffed from the first bytes
+lunette -follow harvest.mrc        # keep reading as a harvest appends records
 ```
 
 | Key | Action |
@@ -106,15 +106,15 @@ is unwrapped unless you pass `-width`.
 ## Command line
 
 ```bash
-marcview validate records.mrc                          # counts, failures, exit 1 on damage
-marcview encoding records.mrc                          # what encoding the file really uses
-marcview show -mode compact -n 5 records.mrc           # print records
-marcview show -filter brussels -tag 856 records.mrc    # same criteria as the TUI
-marcview show -all -filter privacy records.mrc         # search every subfield
-marcview show -width 80 records.mrc                    # wrap long fields at 80 columns
-marcview show -mode json -indent records.mrc           # pretty-print json or xml
-marcview export -format xml records.mrc > out.marcxml  # mrc | xml | json
-marcview export -format mrc -tag 856 -o links.mrc records.mrc
+lunette validate records.mrc                          # counts, failures, exit 1 on damage
+lunette encoding records.mrc                          # what encoding the file really uses
+lunette show -mode compact -n 5 records.mrc           # print records
+lunette show -filter brussels -tag 856 records.mrc    # same criteria as the TUI
+lunette show -all -filter privacy records.mrc         # search every subfield
+lunette show -width 80 records.mrc                    # wrap long fields at 80 columns
+lunette show -mode json -indent records.mrc           # pretty-print json or xml
+lunette export -format xml records.mrc > out.marcxml  # mrc | xml | json
+lunette export -format mrc -tag 856 -o links.mrc records.mrc
 ```
 
 `show` prints plain text when piped; add `-color` to force ANSI.
@@ -161,11 +161,11 @@ so they follow the terminal theme rather than fighting it.
 
 **Mislabeled encodings.** Many OAI-PMH repositories emit UTF-8 record bytes
 while leaving leader/09 blank, which declares MARC-8. Decoding those as MARC-8
-turns `données` into `donn©♭es`. marcview samples the file, and when the bytes
+turns `données` into `donn©♭es`. lunette samples the file, and when the bytes
 are valid multi-byte UTF-8 with no MARC-8 escape sequences it trusts the bytes
 over the leader, then says so in the title bar and in `validate`.
 
-`marcview encoding` reports the evidence in full and exits non-zero on a
+`lunette encoding` reports the evidence in full and exits non-zero on a
 conflict, so a harvest script can catch a repository that mislabels its records:
 
 ```
@@ -179,14 +179,14 @@ records w/ invalid utf-8:   0
 mislabelled records:        1517
   for example:              2, 3, 7, 13, 18, 27, … (1507 more)
 
-UTF-8 bytes behind a MARC-8 leader in 1517 record(s); marcview decodes them as
+UTF-8 bytes behind a MARC-8 leader in 1517 record(s); lunette decodes them as
 UTF-8, other tools will not
 ```
 
 It reads raw record bytes rather than decoded records, because MARC-8 escape
 sequences and invalid UTF-8 are exactly what a decoder removes.
 
-Export corrects the label. Everything marcview writes is UTF-8 — MARCXML and
+Export corrects the label. Everything lunette writes is UTF-8 — MARCXML and
 MARC-in-JSON are UTF-8 by definition, and binary MARC21 is written as UTF-8 too
 — so every exported record carries leader/09 = `a`. Passing a blank leader
 through would mislabel the output for whoever reads it next, which is how the

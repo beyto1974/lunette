@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/beyto1974/marcview/internal/render"
+	"github.com/beyto1974/lunette/internal/render"
 )
 
 func sized(t *testing.T) *Model {

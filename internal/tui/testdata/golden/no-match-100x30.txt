@@ -1,4 +1,4 @@
-marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 0 shown
+lunette · ../../testdata/sample.mrc · MARC21 · 3 records · 0 shown
 ╭────────────────────────────────────╮╭────────────────────────────────────────────────────────────╮
 │0 of 3                              ││no record                                                   │
 │                                    ││                                                            │

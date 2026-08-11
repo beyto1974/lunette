@@ -1,4 +1,4 @@
-marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 1 shown
+lunette · ../../testdata/sample.mrc · MARC21 · 3 records · 1 shown
 ╭────────────────────────────────────╮╭────────────────────────────────────────────────────────────╮
 │1/1 of 3 · 100%                     ││record 2/3 · field 1/5 · match 1/1 · annotated · 100%       │
 │▸ 00002 Gegevensbescherming en… 2018││  LEADER 00209nab a2200085 a 4500                           │

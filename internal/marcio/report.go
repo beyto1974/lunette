@@ -73,7 +73,7 @@ func (r *EncodingReport) Verdict() string {
 	case r.WithEscapes > 0:
 		return fmt.Sprintf("genuine MARC-8: %d record(s) carry escape sequences", r.WithEscapes)
 	case r.Conflict():
-		return fmt.Sprintf("UTF-8 bytes behind a MARC-8 leader in %d record(s); marcview decodes them as UTF-8, "+
+		return fmt.Sprintf("UTF-8 bytes behind a MARC-8 leader in %d record(s); lunette decodes them as UTF-8, "+
 			"other tools will not", r.MismatchedTotal)
 	case r.InvalidUTF8 > 0:
 		return fmt.Sprintf("%d record(s) hold bytes that are neither ASCII nor valid UTF-8, probably Latin-1", r.InvalidUTF8)

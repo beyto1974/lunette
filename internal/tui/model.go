@@ -16,8 +16,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	marc "github.com/beyto1974/gomarc"
 
-	"github.com/beyto1974/marcview/internal/marcio"
-	"github.com/beyto1974/marcview/internal/render"
+	"github.com/beyto1974/lunette/internal/marcio"
+	"github.com/beyto1974/lunette/internal/render"
 )
 
 type pane int

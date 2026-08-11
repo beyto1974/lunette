@@ -16,7 +16,7 @@ import (
 type item struct {
 	// ordinal is the 1-based position among the records that decoded; it
 	// diverges from the position in the file when records were skipped, which
-	// the title bar reports and `marcview validate` details.
+	// the title bar reports and `lunette validate` details.
 	ordinal int
 	index   int // position in Model.records
 	title   string

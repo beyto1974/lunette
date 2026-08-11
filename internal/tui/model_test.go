@@ -8,8 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/beyto1974/marcview/internal/marcio"
-	"github.com/beyto1974/marcview/internal/render"
+	"github.com/beyto1974/lunette/internal/marcio"
+	"github.com/beyto1974/lunette/internal/render"
 )
 
 // newLoaded builds a model over the sample file and drains the background

@@ -1,6 +1,6 @@
 # Roadmap — suggested improvements
 
-Feature proposals for marcview, ordered by value against effort. Nothing here is
+Feature proposals for lunette, ordered by value against effort. Nothing here is
 committed work; each entry says what it buys and what it costs. Small
 housekeeping items live in [../TODO.md](../TODO.md).
 
@@ -184,7 +184,7 @@ everyone.
 
 ### ~~2.6a Follow a growing file~~ — done
 
-`marcview -follow harvest.mrc` reads records as a harvest appends them, taking
+`lunette -follow harvest.mrc` reads records as a harvest appends them, taking
 only whole records so a half-written one is not mistaken for damage.
 
 ### 2.6 Export the current filter from the TUI — S
@@ -199,7 +199,7 @@ or rundll32.
 
 ### ~~2.8 Encoding diagnostics~~ — done
 
-`marcview encoding` reports leader/09 distribution, records holding non-ASCII,
+`lunette encoding` reports leader/09 distribution, records holding non-ASCII,
 real MARC-8 escape sequences, invalid UTF-8 and truncation, then names the
 verdict and exits non-zero on a conflict.
 
@@ -210,7 +210,7 @@ verdict and exits non-zero on a conflict.
 The loader already decides whether a file's bytes contradict its leader. It
 could say more: which records hold non-ASCII, whether any genuinely use MARC-8
 escape sequences, and what the leader/09 distribution across the file is. A
-`marcview encoding file.mrc` report would have turned this session's "données
+`lunette encoding file.mrc` report would have turned this session's "données
 became donn©♭es" from a discovery into a one-line answer, and it is the first
 thing worth running on a harvest from an unfamiliar repository.
 
@@ -249,10 +249,10 @@ original.
 
 ### 3.3 Direct OAI-PMH harvesting in Go — L
 
-`marcview harvest` would fold record fetching into this binary — resumption
+`lunette harvest` would fold record fetching into this binary — resumption
 tokens, retries and rate limiting handled internally — so a user needs neither
 metha nor yaz to get from an endpoint to a browsable file. The shell pipeline
-in the marco repo already does this; the question is whether marcview should
+in the marco repo already does this; the question is whether lunette should
 stand alone.
 
 ### 3.4 Authority and linked-data lookups — L

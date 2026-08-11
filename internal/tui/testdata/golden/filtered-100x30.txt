@@ -1,4 +1,4 @@
-marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 1 shown
+lunette · ../../testdata/sample.mrc · MARC21 · 3 records · 1 shown
 ╭────────────────────────────────────╮╭────────────────────────────────────────────────────────────╮
 │1/1 of 3 · 100%                     ││record 1/3 · field 1/6 · match 1/1 · annotated · 100%       │
 │▸ 00001 Identification of Tran… 2002││  LEADER 00297nam a2200097 a 4500                           │

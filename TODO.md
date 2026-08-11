@@ -1,6 +1,6 @@
 # TODO
 
-Near-term, actionable items for marcview. Larger feature proposals live in
+Near-term, actionable items for lunette. Larger feature proposals live in
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Correctness
@@ -33,7 +33,7 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 
 - [ ] Tag a release and add a `goreleaser` config; CI builds the four
       OS/arch binaries but nothing publishes them.
-- [ ] Push to `github.com/beyto1974/marcview` so the module path resolves; it
+- [ ] Push to `github.com/beyto1974/lunette` so the module path resolves; it
       is set but the remote does not exist yet.
 - [ ] Consider vendoring or pinning `gomarc`; it is pre-1.0 (v0.2.0) and its
       API may move.

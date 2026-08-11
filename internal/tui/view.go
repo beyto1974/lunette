@@ -9,7 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/beyto1974/marcview/internal/marcio"
+	"github.com/beyto1974/lunette/internal/marcio"
 )
 
 // Pane geometry. The list is wide enough for an ordinal plus a readable slice
@@ -91,7 +91,7 @@ func (m *Model) View() tea.View {
 
 	v := tea.NewView(content)
 	v.AltScreen = true
-	v.WindowTitle = "marcview - " + m.path
+	v.WindowTitle = "lunette - " + m.path
 	// Cell motion is enough: clicks and wheel notches, no drag tracking.
 	v.MouseMode = tea.MouseModeCellMotion
 	return v
@@ -108,7 +108,7 @@ func (m *Model) titleBar() string {
 
 func (m *Model) buildTitleBar(path string) string {
 	parts := []string{
-		m.st.titleBar.Render("marcview"),
+		m.st.titleBar.Render("lunette"),
 		m.st.fileName.Render(path),
 	}
 

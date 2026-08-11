@@ -11,7 +11,7 @@ import (
 
 	marc "github.com/beyto1974/gomarc"
 
-	"github.com/beyto1974/marcview/internal/marcio"
+	"github.com/beyto1974/lunette/internal/marcio"
 )
 
 func load(t *testing.T) []*marc.Record {

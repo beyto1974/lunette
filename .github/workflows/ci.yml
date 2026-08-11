@@ -89,12 +89,12 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -o "marcview-${GOOS}-${GOARCH}" .
+        run: go build -o "lunette-${GOOS}-${GOARCH}" .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: marcview-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: marcview-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
 
   shellcheck:
     name: Shell scripts

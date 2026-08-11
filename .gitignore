@@ -1,6 +1,6 @@
 # Build output
-marcview
-marcview-*-*
+lunette
+lunette-*-*
 
 # Test and coverage artefacts
 coverage.out

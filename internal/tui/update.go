@@ -6,8 +6,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/beyto1974/marcview/internal/marcio"
-	"github.com/beyto1974/marcview/internal/render"
+	"github.com/beyto1974/lunette/internal/marcio"
+	"github.com/beyto1974/lunette/internal/render"
 )
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

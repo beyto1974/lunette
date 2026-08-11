@@ -1,4 +1,4 @@
-// Command marcview browses and converts MARC21 files: a dual-pane terminal
+// Command lunette browses and converts MARC21 files: a dual-pane terminal
 // browser by default, plus headless export and validate subcommands.
 package main
 
@@ -9,15 +9,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/beyto1974/marcview/internal/export"
-	"github.com/beyto1974/marcview/internal/marcio"
-	"github.com/beyto1974/marcview/internal/render"
-	"github.com/beyto1974/marcview/internal/tui"
+	"github.com/beyto1974/lunette/internal/export"
+	"github.com/beyto1974/lunette/internal/marcio"
+	"github.com/beyto1974/lunette/internal/render"
+	"github.com/beyto1974/lunette/internal/tui"
 )
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "marcview: "+err.Error())
+		fmt.Fprintln(os.Stderr, "lunette: "+err.Error())
 		os.Exit(1)
 	}
 }
@@ -48,14 +48,14 @@ func run(args []string, stdout, stderr io.Writer) error {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `marcview - browse and convert MARC21 files
+	fmt.Fprint(w, `lunette - browse and convert MARC21 files
 
 Usage:
-  marcview [-follow] <file>              open the dual-pane browser
-  marcview show [flags] <file>           print records to stdout
-  marcview export [flags] <file>         convert records to another format
-  marcview validate <file>               report records that fail to decode
-  marcview encoding <file>               report what encoding the file really uses
+  lunette [-follow] <file>              open the dual-pane browser
+  lunette show [flags] <file>           print records to stdout
+  lunette export [flags] <file>         convert records to another format
+  lunette validate <file>               report records that fail to decode
+  lunette encoding <file>               report what encoding the file really uses
 
 Input may be binary MARC21 (.mrc) or MARCXML; the format is detected from the
 file's first bytes.
@@ -86,7 +86,7 @@ export flags:
 }
 
 func runView(args []string) error {
-	fs := flag.NewFlagSet("marcview", flag.ContinueOnError)
+	fs := flag.NewFlagSet("lunette", flag.ContinueOnError)
 	follow := fs.Bool("follow", false, "keep reading the file as records are appended")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -212,7 +212,7 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 
 	// Skipped records would silently shrink the output, so say so.
 	if n := len(res.Issues); n > 0 {
-		fmt.Fprintf(stderr, "marcview: %d record(s) could not be decoded and were not exported\n", n)
+		fmt.Fprintf(stderr, "lunette: %d record(s) could not be decoded and were not exported\n", n)
 	}
 	return nil
 }

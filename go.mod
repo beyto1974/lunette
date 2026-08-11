@@ -1,4 +1,4 @@
-module github.com/beyto1974/marcview
+module github.com/beyto1974/lunette
 
 go 1.25.0
 

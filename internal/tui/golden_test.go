@@ -9,7 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/beyto1974/marcview/internal/render"
+	"github.com/beyto1974/lunette/internal/render"
 )
 
 // update rewrites the golden files instead of comparing against them:

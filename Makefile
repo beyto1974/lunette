@@ -6,10 +6,10 @@ PROFILE := coverage.out
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t 12
 
-build: ## Build the marcview binary
-	go build -o marcview .
+build: ## Build the lunette binary
+	go build -o lunette .
 
-install: ## Install marcview into GOBIN
+install: ## Install lunette into GOBIN
 	go install .
 
 test: ## Run the test suite
@@ -37,4 +37,4 @@ fmt: ## Format the Go sources
 	gofmt -w .
 
 clean: ## Remove build and coverage artefacts
-	rm -f marcview marcview-*-* $(PROFILE)
+	rm -f lunette lunette-*-* $(PROFILE)
