@@ -165,7 +165,7 @@ func (m *Model) listHeader() string {
 		if m.filter.empty() {
 			return m.st.meta.Render("no records")
 		}
-		return m.st.meta.Render("0 of " + itoa(total))
+		return m.st.meta.Render("0 of " + strconv.Itoa(total))
 	}
 
 	position := m.list.Index() + 1
@@ -304,8 +304,6 @@ func truncate(s string, width int) string {
 	}
 	return lipgloss.NewStyle().MaxWidth(width).Render(s)
 }
-
-func itoa(n int) string { return strconv.Itoa(n) }
 
 func clamp(v, lo, hi int) int {
 	if v < lo {

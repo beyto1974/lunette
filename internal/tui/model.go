@@ -148,9 +148,13 @@ func New(path string, opts ...Option) (*Model, error) {
 		opt(m)
 	}
 
+	// Bound the first read before the goroutine starts: writing model state
+	// from inside it would be a race waiting for its first refactor.
+	source := m.initialReader(f)
+
 	go func() {
 		defer f.Close()
-		err := marcio.Stream(m.initialReader(f), batchSize, func(b marcio.Batch) error {
+		err := marcio.Stream(source, batchSize, func(b marcio.Batch) error {
 			m.ch <- loadMsg{batch: b}
 			return nil
 		})

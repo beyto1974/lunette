@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -113,7 +114,7 @@ func firstDifference(want, got string) string {
 			gl = g[i]
 		}
 		if wl != gl {
-			return "first difference on line " + itoa(i) + ":\nwant: " + wl + "\ngot:  " + gl
+			return "first difference on line " + strconv.Itoa(i) + ":\nwant: " + wl + "\ngot:  " + gl
 		}
 	}
 	return ""
