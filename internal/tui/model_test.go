@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/everbright/marco/marcview/internal/render"
+	"github.com/beyto1974/marcview/internal/render"
 )
 
 // newLoaded builds a model over the sample file and drains the background

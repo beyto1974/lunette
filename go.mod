@@ -1,4 +1,4 @@
-module github.com/everbright/marco/marcview
+module github.com/beyto1974/marcview
 
 go 1.25.0
 

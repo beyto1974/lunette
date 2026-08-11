@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/everbright/marco/marcview/internal/marcio"
+	"github.com/beyto1974/marcview/internal/marcio"
 )
 
 // Pane geometry. The list is wide enough for an ordinal plus a readable slice

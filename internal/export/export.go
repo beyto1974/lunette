@@ -9,7 +9,7 @@ import (
 
 	marc "github.com/beyto1974/gomarc"
 
-	"github.com/everbright/marco/marcview/internal/marcio"
+	"github.com/beyto1974/marcview/internal/marcio"
 )
 
 // Format names an output encoding.

@@ -9,10 +9,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/everbright/marco/marcview/internal/export"
-	"github.com/everbright/marco/marcview/internal/marcio"
-	"github.com/everbright/marco/marcview/internal/render"
-	"github.com/everbright/marco/marcview/internal/tui"
+	"github.com/beyto1974/marcview/internal/export"
+	"github.com/beyto1974/marcview/internal/marcio"
+	"github.com/beyto1974/marcview/internal/render"
+	"github.com/beyto1974/marcview/internal/tui"
 )
 
 func main() {

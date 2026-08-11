@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/everbright/marco/marcview/internal/marcio"
+	"github.com/beyto1974/marcview/internal/marcio"
 )
 
 const sample = "testdata/sample.mrc"
