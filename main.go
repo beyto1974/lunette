@@ -35,6 +35,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runExport(args[1:], stdout, stderr)
 	case "validate":
 		return runValidate(args[1:], stdout)
+	case "encoding":
+		return runEncoding(args[1:], stdout)
 	case "show":
 		return runShow(args[1:], stdout)
 	case "help", "-h", "--help":
@@ -53,6 +55,7 @@ Usage:
   marcview show [flags] <file>           print records to stdout
   marcview export [flags] <file>         convert records to another format
   marcview validate <file>               report records that fail to decode
+  marcview encoding <file>               report what encoding the file really uses
 
 Input may be binary MARC21 (.mrc) or MARCXML; the format is detected from the
 file's first bytes.
@@ -179,6 +182,31 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	// Skipped records would silently shrink the output, so say so.
 	if n := len(res.Issues); n > 0 {
 		fmt.Fprintf(stderr, "marcview: %d record(s) could not be decoded and were not exported\n", n)
+	}
+	return nil
+}
+
+// runEncoding reports what a file's bytes say about its encoding, and whether
+// its leaders agree. It exits non-zero on a conflict so a harvest script can
+// catch a repository that mislabels its records.
+func runEncoding(args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("encoding", flag.ContinueOnError)
+	fs.SetOutput(stdout)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
+	}
+
+	rep, err := marcio.AnalyzeEncodingFile(fs.Arg(0))
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "%s\n%s", fs.Arg(0), rep)
+
+	if rep.Conflict() {
+		return fmt.Errorf("%d record(s) declare MARC-8 but hold UTF-8", rep.MismatchedTotal)
 	}
 	return nil
 }

@@ -203,6 +203,57 @@ func TestExportRequiresFormat(t *testing.T) {
 	}
 }
 
+func TestEncodingReport(t *testing.T) {
+	out, _, err := exec(t, "encoding", sample)
+	if err != nil {
+		t.Fatalf("encoding: %v", err)
+	}
+	for _, want := range []string{"MARC21", "records:", "leader/09", "non-ascii", "consistent"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report does not mention %q:\n%s", want, out)
+		}
+	}
+}
+
+// A file whose bytes contradict its leaders is what the report exists for, and
+// it exits non-zero so a harvest script can act on it.
+func TestEncodingReportFlagsConflict(t *testing.T) {
+	data, err := os.ReadFile(sample)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	for off := 0; off+24 <= len(data); {
+		length := 0
+		for i := 0; i < 5; i++ {
+			length = length*10 + int(data[off+i]-'0')
+		}
+		if length <= 0 {
+			break
+		}
+		data[off+9] = ' '
+		off += length
+	}
+	path := filepath.Join(t.TempDir(), "mislabelled.mrc")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	out, _, err := exec(t, "encoding", path)
+	if err == nil {
+		t.Error("encoding returned nil error for a mislabelled file")
+	}
+	if !strings.Contains(out, "mislabelled records") {
+		t.Errorf("report does not list the mislabelled records:\n%s", out)
+	}
+	if !strings.Contains(out, "UTF-8 bytes behind a MARC-8 leader") {
+		t.Errorf("report does not explain the conflict:\n%s", out)
+	}
+	// The error must quote the real count, not the example cap.
+	if !strings.Contains(err.Error(), "1 record(s)") {
+		t.Errorf("error message = %q, want the true count", err.Error())
+	}
+}
+
 func TestArgumentErrors(t *testing.T) {
 	if _, _, err := exec(t); err == nil {
 		t.Error("no arguments should be an error")
@@ -215,6 +266,9 @@ func TestArgumentErrors(t *testing.T) {
 	}
 	if _, _, err := exec(t, "validate", "does-not-exist.mrc"); err == nil {
 		t.Error("a missing file should be an error")
+	}
+	if _, _, err := exec(t, "encoding"); err == nil {
+		t.Error("encoding without a file should be an error")
 	}
 	// An unknown first argument is treated as a file to open in the browser.
 	if _, _, err := exec(t, "does-not-exist.mrc"); err == nil {

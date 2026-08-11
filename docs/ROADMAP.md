@@ -179,7 +179,15 @@ that already exists. Closes the loop between browsing and extracting.
 `o` opens the electronic-location URL in the system browser. Trivial with
 `xdg-open`/`open`, genuinely useful for a repository of links.
 
-### 2.8 Encoding diagnostics — S
+### ~~2.8 Encoding diagnostics~~ — done
+
+`marcview encoding` reports leader/09 distribution, records holding non-ASCII,
+real MARC-8 escape sequences, invalid UTF-8 and truncation, then names the
+verdict and exits non-zero on a conflict.
+
+<details><summary>Original proposal</summary>
+
+
 
 The loader already decides whether a file's bytes contradict its leader. It
 could say more: which records hold non-ASCII, whether any genuinely use MARC-8
@@ -187,6 +195,8 @@ escape sequences, and what the leader/09 distribution across the file is. A
 `marcview encoding file.mrc` report would have turned this session's "données
 became donn©♭es" from a discovery into a one-line answer, and it is the first
 thing worth running on a harvest from an unfamiliar repository.
+
+</details>
 
 ### 2.9 Fix the leader on export — S
 
