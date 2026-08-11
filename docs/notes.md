@@ -100,6 +100,27 @@ as untrusted:
 - **`export -o`** refuses to write over its own input, and over any existing
   file unless `-force` is given.
 
+## Dependencies
+
+MARC parsing is [gomarc](https://github.com/beyto1974/gomarc) v0.2.0, which is
+pre-1.0: its API can change between releases, and this code already works
+around two of its habits — `Record.String()` is pymarc breaker format rather
+than the `yaz-marcdump` layout, and a declared record length below 5 makes it
+allocate a negative-length slice, which `marcio.safeNext` recovers from. The
+version is pinned, so an upgrade is a deliberate act with the test suite to
+check it.
+
+The interface is [Bubble Tea v2](https://charm.sh) and its siblings, which live
+under `charm.land/...` rather than `github.com/charmbracelet/...`; chroma
+highlights the JSON and XML views, and fsnotify watches a followed file.
+
+`make vuln` runs [govulncheck](https://pkg.go.dev/golang.org/x/vuln), and CI
+runs it on every push. It reports only what this code can actually reach, which
+is the useful question: at the time of writing the module graph carries dozens
+of advisories and none of them are reachable from here. It did catch one that
+was — GO-2026-4602, an `os` bug reachable through fsnotify's directory watch —
+which is why go.mod asks for Go 1.25.8 rather than 1.25.0.
+
 ## Layout and tests
 
 The TUI layout is covered by golden frames in `internal/tui/testdata/golden/`:

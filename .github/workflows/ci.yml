@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 env:
-  # gomarc requires this; keep it in step with go.mod.
+  # Keep in step with the go directive in go.mod, which is at 1.25.8 for a
+  # patched standard library: GO-2026-4602 is reachable through fsnotify.
   GO_VERSION: "1.25.x"
 
 jobs:
@@ -95,6 +96,19 @@ jobs:
         with:
           name: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
           path: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  vulnerabilities:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
   shellcheck:
     name: Shell scripts

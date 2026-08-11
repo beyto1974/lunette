@@ -1,4 +1,4 @@
-.PHONY: help build install test race cover badge golden screenshots lint fmt clean
+.PHONY: help build install test race cover badge golden screenshots lint vuln fmt clean
 
 BADGE   := docs/coverage.svg
 PROFILE := coverage.out
@@ -35,6 +35,9 @@ badge: cover ## Regenerate docs/coverage.svg from the coverage profile
 lint: ## Vet and check formatting
 	go vet ./...
 	@test -z "$$(gofmt -l .)" || { echo "unformatted files:"; gofmt -l .; exit 1; }
+
+vuln: ## Report known vulnerabilities that this code can actually reach
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 fmt: ## Format the Go sources
 	gofmt -w .

@@ -8,7 +8,7 @@ right. Reads binary MARC21 and MARCXML, and converts between them.
 ## Install
 
 ```bash
-go install github.com/beyto1974/lunette@latest    # needs Go 1.25 or newer
+go install github.com/beyto1974/lunette@latest    # needs Go 1.25.8 or newer
 ```
 
 Or download a binary for linux or macOS, amd64 or arm64, from the
@@ -70,6 +70,9 @@ lunette export -format xml records.mrc > out.xml   # mrc, xml or json
 - **Untrusted input.** Control characters in a record are shown as `^[` rather
   than sent to the terminal, where they could rewrite the screen or reach the
   clipboard.
+- **Dependencies.** MARC parsing is [gomarc](https://github.com/beyto1974/gomarc),
+  which is pre-1.0 and may change under us; `make vuln` runs govulncheck, as
+  does CI.
 
 Longer explanations are in [docs/notes.md](docs/notes.md); planned work is in
 [TODO.md](TODO.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
