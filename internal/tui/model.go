@@ -278,6 +278,45 @@ func (m *Model) findMatches(rec *marc.Record) {
 	m.scrollToMatch()
 }
 
+// stepMatchingRecord moves the list cursor to the next record matching the
+// search term, wrapping at the ends. When a filter is narrowing the list every
+// visible record matches, so this steps one row; when it is not, it skips the
+// records that do not.
+func (m *Model) stepMatchingRecord(dir int) {
+	items := m.list.Items()
+	if m.filter.query == "" || len(items) == 0 {
+		return
+	}
+
+	start := m.list.Index()
+	for step := 1; step <= len(items); step++ {
+		i := ((start+dir*step)%len(items) + len(items)) % len(items)
+		it, ok := items[i].(item)
+		if !ok {
+			continue
+		}
+		if !m.recordMatches(it.index) {
+			continue
+		}
+		m.list.Select(i)
+		m.refreshDetail()
+		return
+	}
+}
+
+// recordMatches reports whether a record matches the current search term,
+// using whichever index the filter is searching.
+func (m *Model) recordMatches(index int) bool {
+	if index < 0 || index >= len(m.keys) {
+		return false
+	}
+	haystack := m.keys[index]
+	if m.filter.fullText && index < len(m.fullKeys) {
+		haystack = m.fullKeys[index]
+	}
+	return strings.Contains(haystack, m.filter.query)
+}
+
 // matchCount is how many lines of the current record match the filter.
 func (m *Model) matchCount() int { return len(m.matchLines) }
 

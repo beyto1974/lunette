@@ -37,7 +37,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleLoad folds one streamed batch into the model.
 func (m *Model) handleLoad(msg loadMsg) tea.Cmd {
-	m.format = msg.batch.Format
+	// The final message carries no batch, so keep what earlier ones reported.
+	if msg.batch.Format != marcio.FormatUnknown {
+		m.format = msg.batch.Format
+	}
 	m.forcedUTF8 = m.forcedUTF8 || msg.batch.ForcedUTF8
 	for _, rec := range msg.batch.Records {
 		m.records = append(m.records, rec)
@@ -130,11 +133,21 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case key.Matches(msg, k.XML):
 		return m.setMode(render.XML)
 
+	// n and N follow the focus: through the matching lines of one record on
+	// the right, and from matching record to matching record on the left.
 	case key.Matches(msg, k.NextMatch):
-		m.nextMatch()
+		if m.focus == paneList {
+			m.stepMatchingRecord(1)
+		} else {
+			m.nextMatch()
+		}
 		return nil
 	case key.Matches(msg, k.PrevMatch):
-		m.previousMatch()
+		if m.focus == paneList {
+			m.stepMatchingRecord(-1)
+		} else {
+			m.previousMatch()
+		}
 		return nil
 
 	case key.Matches(msg, k.Copy):

@@ -49,9 +49,9 @@ func (m *Model) layout() {
 	}
 	m.bodyHeight = bodyHeight
 
-	// Each pane spends two rows and two columns on its border, and the detail
-	// pane one more row on its header.
-	m.list.SetSize(max(listWidth-2, 1), max(bodyHeight-2, 1))
+	// Each pane spends two rows and two columns on its border and one more row
+	// on its header.
+	m.list.SetSize(max(listWidth-2, 1), max(bodyHeight-3, 1))
 	m.vp.SetWidth(max(detailWidth-2, 1))
 	m.vp.SetHeight(max(bodyHeight-3, 1))
 	m.input.SetWidth(max(m.width-12, 10))
@@ -126,7 +126,25 @@ func (m *Model) titleBar() string {
 }
 
 func (m *Model) listPane() string {
-	return m.pane(paneList, m.list.Width(), m.list.View())
+	return m.pane(paneList, m.list.Width(), m.listHeader(), m.list.View())
+}
+
+// listHeader reports where the cursor sits in the file: position, how many
+// records are showing when a filter hides some, and how far through the set
+// the cursor is.
+func (m *Model) listHeader() string {
+	total, shown := len(m.records), len(m.list.Items())
+	if shown == 0 {
+		return m.st.meta.Render("no records")
+	}
+
+	position := m.list.Index() + 1
+	label := fmt.Sprintf("%d/%d", position, shown)
+	if shown != total {
+		label += fmt.Sprintf(" of %d", total)
+	}
+	return m.st.paneTitle.Render(label) +
+		m.st.meta.Render(fmt.Sprintf(" · %d%%", position*100/shown))
 }
 
 func (m *Model) detailPane() string {
@@ -144,24 +162,37 @@ func (m *Model) detailPane() string {
 		header = m.st.paneTitle.Render(label) + m.st.meta.Render(meta)
 	}
 
-	inner := strings.Join([]string{truncate(header, m.vp.Width()), m.vp.View()}, "\n")
-	return m.pane(paneDetail, m.vp.Width(), inner)
+	return m.pane(paneDetail, m.vp.Width(), header, m.vp.View())
 }
 
-// pane frames content in a border, sized so the box is exactly bodyHeight rows
-// tall. The height is pinned rather than left to the content: a bubble that
-// returns a line or two more than it was sized for would otherwise push the
-// footer - and with it the help - off the bottom of the terminal.
-func (m *Model) pane(which pane, width int, content string) string {
+// pane frames a header and body in a border.
+//
+// Both dimensions are pinned rather than left to lipgloss. Its Width counts the
+// border, so passing the content width would squeeze every line by two cells -
+// which wrapped each list row onto a second line and put the year underneath
+// the title. The body is padded or cut to an exact row count for the same
+// reason: a bubble returning more lines than it was sized for would push the
+// footer, and with it the help, off the bottom of the terminal.
+func (m *Model) pane(which pane, contentWidth int, header, body string) string {
 	style := m.st.paneIdle
 	if m.focus == which {
 		style = m.st.paneActive
 	}
-	inner := m.bodyHeight - 2
-	if inner < 1 {
-		inner = 1
+
+	rows := m.bodyHeight - 2 // less the top and bottom border
+	if rows < 1 {
+		rows = 1
 	}
-	return style.Width(width).Height(inner).MaxHeight(m.bodyHeight).Render(content)
+	lines := append([]string{truncate(header, contentWidth)}, strings.Split(body, "\n")...)
+	return style.Width(contentWidth + 2).Render(strings.Join(fitLines(lines, rows), "\n"))
+}
+
+// fitLines pads or truncates lines to exactly n entries.
+func fitLines(lines []string, n int) []string {
+	for len(lines) < n {
+		lines = append(lines, "")
+	}
+	return lines[:n]
 }
 
 func (m *Model) currentControlNumber() string {

@@ -51,7 +51,7 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `tab`, `enter` | Switch focus between the panes |
 | `ctrl+u` / `ctrl+d` | Half-page scroll in the record pane |
 | `/` | Filter (`tag:856 brussels` narrows by field and text; `all:` searches every subfield) |
-| `n` / `N` | Next / previous match inside the record |
+| `n` / `N` | Next / previous match — between records with the list focused, within the record with the record focused |
 | `esc` | Clear the filter |
 | `:` | Jump to a record number |
 | `a` `c` `r` `J` `X` | Annotated, compact, raw breaker, JSON, XML views |

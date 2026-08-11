@@ -32,6 +32,16 @@ func (f Format) String() string {
 	}
 }
 
+// declaresMARC8 reports whether the first record's leader/09 is anything other
+// than 'a', which is MARC21's way of saying "MARC-8 encoded".
+func declaresMARC8(peek []byte) bool {
+	const codingScheme = 9
+	if len(peek) <= codingScheme {
+		return false
+	}
+	return peek[codingScheme] != 'a'
+}
+
 // offsetUnknown marks records whose byte offset cannot be determined, which is
 // the case for every MARCXML record.
 const offsetUnknown int64 = -1
@@ -120,8 +130,11 @@ func newSource(r io.Reader) (src source, format Format, forcedUTF8 bool, err err
 
 	switch format = DetectFormat(peek); format {
 	case FormatBinary:
-		// MARCXML is UTF-8 by definition, so the override only applies here.
-		forcedUTF8 = LooksUTF8(peek)
+		// MARCXML is UTF-8 by definition, so the override only applies here,
+		// and only when the leader disagrees with the bytes. Overriding a
+		// record that already declares UTF-8 changes nothing but would report
+		// a conflict that does not exist.
+		forcedUTF8 = declaresMARC8(peek) && LooksUTF8(peek)
 		opts := []marc.ReaderOption{marc.WithHideUTF8Warnings(true)}
 		if forcedUTF8 {
 			opts = append(opts, marc.WithForceUTF8(true))

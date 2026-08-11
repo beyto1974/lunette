@@ -68,7 +68,9 @@ func TestLoadMislabeledUTF8(t *testing.T) {
 	}
 }
 
-// A file whose leader is honest must not be flagged as overridden.
+// A file whose leader already declares UTF-8 needs no override, and must not
+// be reported as one: the browser and validate both say "leader says MARC-8"
+// when ForcedUTF8 is set.
 func TestLoadWellLabeledUTF8(t *testing.T) {
 	res, err := LoadFile("../../testdata/sample.mrc")
 	if err != nil {
@@ -76,5 +78,19 @@ func TestLoadWellLabeledUTF8(t *testing.T) {
 	}
 	if got := Title(res.Records[1]); !strings.Contains(got, "café-cultuur") {
 		t.Errorf("title = %q, want it to contain café-cultuur", got)
+	}
+	if res.ForcedUTF8 {
+		t.Error("ForcedUTF8 set for a file whose leader/09 is already 'a'")
+	}
+}
+
+// MARCXML is UTF-8 by definition, so there is nothing to override there.
+func TestLoadXMLNeverForced(t *testing.T) {
+	res, err := LoadFile("../../testdata/sample.marcxml")
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if res.ForcedUTF8 {
+		t.Error("ForcedUTF8 set for MARCXML")
 	}
 }

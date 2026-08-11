@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/beyto1974/marcview/internal/marcio"
 	"github.com/beyto1974/marcview/internal/render"
 )
 
@@ -42,6 +43,21 @@ func TestLoadPopulatesList(t *testing.T) {
 	}
 	if m.loading {
 		t.Error("still loading after the done message")
+	}
+}
+
+// The final, empty batch used to overwrite the format with the zero value, so
+// the title bar reported "unknown" for every file.
+func TestFormatSurvivesLoad(t *testing.T) {
+	m := newLoaded(t)
+	if m.format != marcio.FormatBinary {
+		t.Errorf("format after loading a .mrc = %v, want MARC21", m.format)
+	}
+	if !strings.Contains(stripANSI(m.titleBar()), "MARC21") {
+		t.Errorf("title bar does not name the format:\n%s", stripANSI(m.titleBar()))
+	}
+	if strings.Contains(stripANSI(m.titleBar()), "leader says MARC-8") {
+		t.Error("title bar claims an encoding override for a correctly labelled file")
 	}
 }
 
