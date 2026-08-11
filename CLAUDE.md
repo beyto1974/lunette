@@ -74,6 +74,14 @@ renders unchanged, which is how `plainPalette` works.
 - Test fixtures are committed in both encodings; regenerate `sample.mrc` from
   `sample.marcxml` with `yaz-marcdump`, never by hand.
 
+## Following a file
+
+`-follow` watches the file's *directory*, not the file: a writer that replaces
+a file by renaming over it leaves a watch on the old inode pointing at nothing.
+Reads are tagged with what triggered them, because the safety tick runs its own
+timer - arming a watch waiter from it as well would leave a reader queued on
+the channel after every tick.
+
 ## Style
 
 Comments explain why, not what. Match the density of the surrounding file:

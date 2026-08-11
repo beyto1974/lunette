@@ -26,6 +26,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case followMsg:
 		return m, m.handleFollow(msg)
 
+	case safetyTickMsg:
+		// A watch can miss a write on a network filesystem, so re-read slowly
+		// anyway for as long as we are following.
+		if !m.following {
+			return m, nil
+		}
+		return m, tea.Batch(m.readFile(triggerSafety), m.scheduleSafetyPoll())
+
 	case tea.KeyPressMsg:
 		if m.inputMode != inputNone {
 			return m, m.handleInputKey(msg)
@@ -68,7 +76,7 @@ func (m *Model) handleLoad(msg loadMsg) tea.Cmd {
 		cmd := m.rebuildItems()
 		m.refreshDetail()
 		if m.following {
-			return tea.Batch(cmd, m.schedulePoll())
+			return tea.Batch(cmd, m.startFollowing())
 		}
 		return cmd
 	}

@@ -87,7 +87,13 @@ type Model struct {
 	// which is how a harvest still being written can be browsed live.
 	following    bool
 	followOffset int64
-	status       string
+	// watching is true when the filesystem reports changes; when it is false
+	// and following is true, a timer does the work instead.
+	watching bool
+	watcher  changeSource
+	// newWatcher is replaced in tests.
+	newWatcher func(string) (changeSource, error)
+	status     string
 
 	width, height int
 	bodyHeight    int    // rows the panes occupy, borders included

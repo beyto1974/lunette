@@ -71,9 +71,16 @@ structured views have no field structure, so there the same keys scroll.
 
 `-follow` watches a binary MARC21 file that is still being written and picks up
 records as they land, which is what you want while `harvest-marc21.sh` is
-running. Only whole records are read: a half-written one at the end of the file
-is left for the next poll rather than reported as damage. A file that shrinks
-has been replaced rather than appended to, so following stops and says so.
+running. The watch uses the platform's own mechanism — inotify on Linux, kqueue
+on BSD and macOS — so records appear as they are written rather than at the end
+of a polling interval; a burst of writes is coalesced into one read. Where a
+watch cannot be established, following falls back to a one-second timer and
+says so, and a slow re-check runs alongside the watch regardless, since a watch
+on a network filesystem can miss writes made by another host.
+
+Only whole records are read: a half-written one at the end of the file is left
+for the next read rather than reported as damage. A file that shrinks has been
+replaced rather than appended to, so following stops and says so.
 
 `z` collapses the browser to a single pane on any terminal — `enter` opens the
 record, `esc` returns to the list — which is also what happens automatically

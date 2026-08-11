@@ -16,8 +16,6 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 
 ## Views
 
-- [ ] Follow mode polls once a second; watch the file with inotify instead
-      where the platform offers it.
 
 ## Testing
 
