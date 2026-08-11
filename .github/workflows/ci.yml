@@ -75,7 +75,7 @@ jobs:
     needs: test
     strategy:
       matrix:
-        goos: [linux, darwin]
+        goos: [linux, darwin, windows]
         goarch: [amd64, arm64]
 
     steps:
@@ -96,6 +96,19 @@ jobs:
         with:
           name: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
           path: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  test-windows:
+    name: Test on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      # Binaries are published for Windows, so the suite has to run there and
+      # not merely cross-compile. The golden frames and the terminal work are
+      # what this is really checking.
+      - run: go test ./...
 
   vulnerabilities:
     name: Vulnerability scan

@@ -11,7 +11,7 @@ right. Reads binary MARC21 and MARCXML, and converts between them.
 go install github.com/beyto1974/lunette@latest    # needs Go 1.25.8 or newer
 ```
 
-Or download a binary for linux or macOS, amd64 or arm64, from the
+Or download a binary for linux, macOS or Windows, amd64 or arm64, from the
 [releases](https://github.com/beyto1974/lunette/releases) — check it against
 the `checksums.txt` published alongside. Or build it:
 

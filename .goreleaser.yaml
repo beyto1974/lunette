@@ -14,7 +14,7 @@ builds:
     binary: lunette
     env:
       - CGO_ENABLED=0
-    goos: [linux, darwin]
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     # -s -w drop the symbol table and DWARF: a browser does not need them, and
     # they are most of the binary. The rest is what `lunette version` prints.
@@ -28,6 +28,11 @@ builds:
 archives:
   - id: lunette
     formats: [tar.gz]
+    # Windows gets a zip: tar is not on a stock Windows box, Explorer opens a
+    # zip on double-click.
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
