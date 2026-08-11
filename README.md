@@ -76,7 +76,8 @@ lunette export -format xml records.mrc > out.xml   # mrc, xml or json
   does CI.
 
 Longer explanations are in [docs/notes.md](docs/notes.md); planned work is in
-[TODO.md](TODO.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+[TODO.md](TODO.md) and [docs/ROADMAP.md](docs/ROADMAP.md); how to report a
+vulnerability is in [SECURITY.md](SECURITY.md).
 
 ## Development
 

@@ -1,0 +1,41 @@
+name: CodeQL
+
+# GitHub's own static analysis. Free for public repositories, and it looks for
+# a different class of problem than govulncheck does: govulncheck asks whether
+# a known vulnerability in a dependency is reachable, CodeQL reads this code.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a newly published query pattern still finds an idle repository.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write # to file the results under Security > Code scanning
+
+jobs:
+  analyze:
+    name: Analyze Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          # security-extended adds the lower-confidence security queries; this
+          # code base is small enough to look at what they turn up.
+          queries: security-extended
+
+      - uses: github/codeql-action/autobuild@v3
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:go"

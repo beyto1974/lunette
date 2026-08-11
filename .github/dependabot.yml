@@ -1,0 +1,26 @@
+version: 2
+
+# Dependabot raises pull requests for updates, and its security alerts are what
+# tell you a dependency has a published advisory. Free for public repositories.
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # The Charm libraries move together; one pull request rather than six.
+      charm:
+        patterns:
+          - "charm.land/*"
+          - "github.com/charmbracelet/*"
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: build
