@@ -16,7 +16,7 @@ converts between them from the command line.
 │                     │ 245 10 Title Statement                         │
 │                     │        $a Identification of Transmission Lines │
 └─────────────────────┴────────────────────────────────────────────────┘
- / filter   : jump   tab switch pane   r raw   y copy   ? help   q quit
+ / filter   n next match   : jump   tab pane   c compact   y copy   ? help   q quit
 ```
 
 ## Install
@@ -50,10 +50,11 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `g` / `G` | First / last record |
 | `tab`, `enter` | Switch focus between the panes |
 | `ctrl+u` / `ctrl+d` | Half-page scroll in the record pane |
-| `/` | Filter (`tag:856 brussels` narrows by field and text) |
+| `/` | Filter (`tag:856 brussels` narrows by field and text; `all:` searches every subfield) |
+| `n` / `N` | Next / previous match inside the record |
 | `esc` | Clear the filter |
 | `:` | Jump to a record number |
-| `a` `r` `J` `X` | Annotated, raw breaker, JSON, XML views |
+| `a` `c` `r` `J` `X` | Annotated, compact, raw breaker, JSON, XML views |
 | `y` | Copy the current record to the clipboard (OSC 52, works over SSH) |
 | `?` | Toggle full help |
 | `q`, `ctrl+c` | Quit |
@@ -65,28 +66,39 @@ Below about 58 columns the browser shows one pane at a time, following focus.
 
 ```bash
 marcview validate records.mrc                          # counts, failures, exit 1 on damage
-marcview show -mode raw -n 5 records.mrc               # print records
-marcview show -filter brussels -tag 856 records.mrc    # same filter syntax as the TUI
+marcview show -mode compact -n 5 records.mrc           # print records
+marcview show -filter brussels -tag 856 records.mrc    # same criteria as the TUI
+marcview show -all -filter privacy records.mrc         # search every subfield
 marcview export -format xml records.mrc > out.marcxml  # mrc | xml | json
 marcview export -format mrc -tag 856 -o links.mrc records.mrc
 ```
 
 `show` prints plain text when piped; add `-color` to force ANSI.
 
+By default a filter matches the record's control number, title, author and
+year. `-all` (or the `all:` prefix in the browser) searches every subfield
+instead, which finds terms that only appear in a subject or a note — on a
+5572-record harvest, `privacy` matches 21 records by key and 54 in full text.
+
 ## Views and highlighting
 
-Four ways to look at a record, switched live:
+Five ways to look at a record, switched live:
 
 - **Annotated** (default) — decoded leader, MARC21 field labels, blank
   indicators shown as `#`, one subfield per line, and 880 vernacular fields
   rendered beside the field they translate.
+- **Compact** — one field per line with subfields inline,
+  `245 10 $a Title $b subtitle`. Keeps the labels off and most records on one
+  screen; the form to reach for when comparing records or grepping output.
 - **Raw** — pymarc breaker form, `=245  10$aTitle`.
 - **JSON** — MARC-in-JSON.
 - **XML** — MARCXML.
 
 MARC is highlighted natively: tags, indicators, subfield codes, field labels
-and the leader each get their own colour, and the active filter term is
-highlighted inside field values. JSON and XML are highlighted with
+and the leader each get their own colour. With a filter active the matched term
+is highlighted in both panes — in the record and in the list titles — and `n`
+and `N` step between matches inside the record, with the position shown in the
+pane header. JSON and XML are highlighted with
 [chroma](https://github.com/alecthomas/chroma). Colours are ANSI-256 indices,
 so they follow the terminal theme rather than fighting it.
 
@@ -117,7 +129,7 @@ Layout:
 ```
 main.go                 subcommand dispatch
 internal/marcio/        format sniffing, encoding detection, streaming load
-internal/render/        annotated / raw / json / xml renderers, tag labels
+internal/render/        annotated / compact / raw / json / xml renderers, tag labels
 internal/export/        mrc / xml / json writers, filtering
 internal/tui/           Bubble Tea model, panes, keys, styles
 testdata/               3-record fixtures in both encodings

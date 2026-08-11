@@ -22,7 +22,14 @@ because every later action ("filter by this", "copy this") needs a notion of
 Implementation: keep the rendered record as `[]fieldLine` with a field index per
 line rather than one string, and drive the viewport from that.
 
-### 1.2 Compact record view — S
+### ~~1.2 Compact record view~~ — done
+
+Shipped as the `compact` render mode, bound to `c` and available as
+`show -mode compact`.
+
+<details><summary>Original proposal</summary>
+
+
 
 A fifth render mode, bound to `c`, that puts one field per line with its
 subfields inline: `245 10 $a Title $b subtitle`. The annotated view spends
@@ -41,7 +48,20 @@ list, key map and help entries all extend by one. Roughly 60 lines plus tests.
 Worth pairing with a width-aware fold so long fields wrap under an indent
 rather than being cut off.
 
-### 1.3 Search highlighting across both panes — S
+</details>
+
+Still open from that entry: the width-aware fold. Long fields are cut at the
+pane edge rather than wrapped under an indent.
+
+### ~~1.3 Search highlighting across both panes~~ — done
+
+All three parts shipped: matches highlight in the list as well as the record,
+`n` and `N` step between hits with a `match 3/7` counter in the pane header,
+and the `all:` prefix (`-all` on the command line) searches every subfield.
+
+<details><summary>Original proposal</summary>
+
+
 
 Filter matches are highlighted in the record pane today, but not in the list,
 so with a filter active you can see *that* a record matched without seeing
@@ -63,6 +83,8 @@ so with a filter active you can see *that* a record matched without seeing
 
 Together these turn the filter from "which records" into "where in them", which
 is what a search is for.
+
+</details>
 
 ### 1.4 Repository-wide statistics view — S
 
