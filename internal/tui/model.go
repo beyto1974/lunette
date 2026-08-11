@@ -75,6 +75,7 @@ type Model struct {
 	status     string
 
 	width, height int
+	bodyHeight    int    // rows the panes occupy, borders included
 	singlePane    bool   // terminal too narrow for both panes
 	helpView      string // rendered in layout, since its height drives the body
 	loading       bool

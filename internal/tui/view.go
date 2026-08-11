@@ -47,6 +47,7 @@ func (m *Model) layout() {
 	if bodyHeight < 3 {
 		bodyHeight = 3
 	}
+	m.bodyHeight = bodyHeight
 
 	// Each pane spends two rows and two columns on its border, and the detail
 	// pane one more row on its header.
@@ -89,6 +90,8 @@ func (m *Model) View() tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.WindowTitle = "marcview - " + m.path
+	// Cell motion is enough: clicks and wheel notches, no drag tracking.
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 
@@ -123,20 +126,10 @@ func (m *Model) titleBar() string {
 }
 
 func (m *Model) listPane() string {
-	width := m.list.Width() + 2
-	style := m.st.paneIdle
-	if m.focus == paneList {
-		style = m.st.paneActive
-	}
-	return style.Width(width - 2).Render(m.list.View())
+	return m.pane(paneList, m.list.Width(), m.list.View())
 }
 
 func (m *Model) detailPane() string {
-	style := m.st.paneIdle
-	if m.focus == paneDetail {
-		style = m.st.paneActive
-	}
-
 	header := m.st.meta.Render("no record")
 	if _, it, ok := m.current(); ok {
 		label := fmt.Sprintf("record %d/%d", it.ordinal, len(m.records))
@@ -152,7 +145,23 @@ func (m *Model) detailPane() string {
 	}
 
 	inner := strings.Join([]string{truncate(header, m.vp.Width()), m.vp.View()}, "\n")
-	return style.Width(m.vp.Width()).Render(inner)
+	return m.pane(paneDetail, m.vp.Width(), inner)
+}
+
+// pane frames content in a border, sized so the box is exactly bodyHeight rows
+// tall. The height is pinned rather than left to the content: a bubble that
+// returns a line or two more than it was sized for would otherwise push the
+// footer - and with it the help - off the bottom of the terminal.
+func (m *Model) pane(which pane, width int, content string) string {
+	style := m.st.paneIdle
+	if m.focus == which {
+		style = m.st.paneActive
+	}
+	inner := m.bodyHeight - 2
+	if inner < 1 {
+		inner = 1
+	}
+	return style.Width(width).Height(inner).MaxHeight(m.bodyHeight).Render(content)
 }
 
 func (m *Model) currentControlNumber() string {

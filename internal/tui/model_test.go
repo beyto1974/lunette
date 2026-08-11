@@ -189,6 +189,67 @@ func TestViewFitsWidth(t *testing.T) {
 	}
 }
 
+// The rendered view must fit the terminal in both directions. It did not:
+// toggling full help pushed the footer - the help itself - off the bottom, so
+// "?" appeared to do nothing.
+func TestViewFitsHeight(t *testing.T) {
+	m := newLoaded(t)
+
+	for _, showAll := range []bool{false, true} {
+		m.help.ShowAll = showAll
+		for _, size := range []struct{ w, h int }{{120, 40}, {100, 30}, {80, 24}, {60, 16}, {40, 12}} {
+			m.Update(tea.WindowSizeMsg{Width: size.w, Height: size.h})
+			lines := strings.Split(m.View().Content, "\n")
+			if len(lines) > size.h {
+				t.Errorf("help=%v terminal %dx%d: view is %d lines, want at most %d",
+					showAll, size.w, size.h, len(lines), size.h)
+			}
+		}
+	}
+}
+
+// Pressing "?" must actually reveal the full help.
+func TestHelpToggleShowsFullHelp(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	if strings.Contains(stripANSI(m.View().Content), "previous match") {
+		t.Fatal("full help is visible before it was asked for")
+	}
+
+	m.Update(tea.KeyPressMsg{Code: '?', Text: "?"})
+
+	content := stripANSI(m.View().Content)
+	for _, want := range []string{"previous match", "compact", "jump to record"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("full help does not mention %q after '?':\n%s", want, content)
+		}
+	}
+
+	m.Update(tea.KeyPressMsg{Code: '?', Text: "?"})
+	if strings.Contains(stripANSI(m.View().Content), "previous match") {
+		t.Error("'?' did not toggle the full help back off")
+	}
+}
+
+// Every binding must be reachable from the full help; the bubble ellipsises
+// columns that do not fit, which silently hid three of them.
+func TestFullHelpListsEveryBinding(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+	m.help.ShowAll = true
+	m.layout()
+
+	help := stripANSI(m.helpView)
+	for _, group := range m.keys_.FullHelp() {
+		for _, b := range group {
+			if !strings.Contains(help, b.Help().Desc) {
+				t.Errorf("full help at 100 columns omits %q:\n%s", b.Help().Desc, help)
+			}
+		}
+	}
+}
+
 func TestClamp(t *testing.T) {
 	if clamp(5, 10, 20) != 10 || clamp(25, 10, 20) != 20 || clamp(15, 10, 20) != 15 {
 		t.Error("clamp is wrong")
