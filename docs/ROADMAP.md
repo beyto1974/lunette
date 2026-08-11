@@ -128,7 +128,16 @@ reports byte noise rather than field changes.
 Click to select a record or focus a pane, wheel to scroll whichever pane the
 pointer is over. Bubble Tea v2 asks for this through `View.MouseMode`.
 
-### 2.2 A golden-frame test for the layout — S
+### ~~2.2 A golden-frame test for the layout~~ — done
+
+Eight frames under `internal/tui/testdata/golden/`, rewritten with
+`make golden`. They found two more defects on their first run: the title bar
+truncating "MARC21" to "M" on a narrow terminal, and an empty result showing
+the bubble's "No items." with no mention of the filter that caused it.
+
+<details><summary>Original proposal</summary>
+
+
 
 Three layout bugs shipped in this repository and all three were invisible to
 the test suite until someone looked at a real terminal: panes two rows too
@@ -140,6 +149,8 @@ A golden test that renders the whole view at a few fixed sizes and compares
 against committed text files would turn every one of those into a failing diff.
 It also makes deliberate layout changes visible in review, which per-property
 assertions do not.
+
+</details>
 
 ### 2.3 Saved views and bookmarks — S
 

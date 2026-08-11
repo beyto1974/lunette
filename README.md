@@ -140,7 +140,15 @@ make race     # go test -race ./...
 make cover    # coverage profile + total
 make badge    # regenerate docs/coverage.svg
 make lint     # go vet + gofmt check
+make golden   # rewrite the golden TUI frames after an intended layout change
 ```
+
+The TUI layout is covered by golden frames: `internal/tui/testdata/golden/`
+holds the whole rendered view at eight terminal sizes and states, stripped of
+ANSI so the diffs stay readable. Layout arithmetic is where this package has
+gone wrong before — panes two rows too tall, list rows two cells too wide — and
+property assertions kept missing it. Change the layout deliberately, run
+`make golden`, and read the diff.
 
 Layout:
 

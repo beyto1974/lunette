@@ -1,0 +1,14 @@
+marcview · sample.mrc · MARC21 · 3 recor
+╭──────────────────────────────────────╮
+│1/3 · 33%                             │
+│▸ 00001 Identification of Transm… 2002│
+│  00002 Gegevensbescherming en c… 2018│
+│  00003 Sans auteur 2020              │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+╰──────────────────────────────────────╯
+no filter
+/ filter • n next match …

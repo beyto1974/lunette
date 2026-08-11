@@ -44,6 +44,11 @@ are moving targets and published documentation for them is unreliable:
 
 Use `go doc` against the module cache. It is the authority; the web is not.
 
+**Layout changes need a golden review.** `internal/tui/testdata/golden/` holds
+the whole rendered frame at eight sizes and states. If a change is deliberate,
+run `make golden` and read the diff; never regenerate to make a red test green
+without looking at what moved.
+
 **Do not silently drop records.** A record that fails to decode becomes a
 `marcio.Issue` with its ordinal and byte offset. Anything that reduces the
 output count says so on stderr.
@@ -60,6 +65,9 @@ renders unchanged, which is how `plainPalette` works.
 - `gomarc`'s reader panics on a declared record length below 5 (negative slice
   allocation). `safeNext` recovers and ends the walk, since a panic that
   consumed no input would repeat forever.
+- lipgloss v2 counts the border inside `Style.Width` and `Style.Height`, unlike
+  v1. Passing content width squeezes the content by two cells - which is how
+  the list year ended up wrapping onto its own line.
 - Test fixtures are committed in both encodings; regenerate `sample.mrc` from
   `sample.marcxml` with `yaz-marcdump`, never by hand.
 

@@ -1,0 +1,30 @@
+marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 0 shown
+╭────────────────────────────────────╮╭────────────────────────────────────────────────────────────╮
+│0 of 3                              ││no record                                                   │
+│                                    ││                                                            │
+│  No record matches.                ││                                                            │
+│                                    ││                                                            │
+│  esc clears the filter             ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+│                                    ││                                                            │
+╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────╯
+filter match:zzzz
+/ filter • n next match • : jump to record • tab switch pane • c compact • y copy record • ? help …
