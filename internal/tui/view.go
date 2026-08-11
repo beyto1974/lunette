@@ -258,11 +258,7 @@ func (m *Model) statusLine() string {
 		parts = append(parts, "tag:"+m.filter.tag)
 	}
 	if m.filter.query != "" {
-		scope := "match:"
-		if m.filter.fullText {
-			scope = "all:"
-		}
-		parts = append(parts, scope+m.filter.query)
+		parts = append(parts, m.filter.query+" in "+m.filter.scope.String())
 	}
 	if len(parts) == 0 {
 		return "no filter"

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/beyto1974/marcview/internal/marcio"
 )
 
 func press(m *Model, s string) {
@@ -101,5 +103,78 @@ func TestListHeaderWhenFiltered(t *testing.T) {
 	}
 	if !strings.Contains(header, "of 3") {
 		t.Errorf("filtered header does not say how many records the file holds:\n%s", header)
+	}
+}
+
+// The filter scope decides which pane the search reads: the list titles, the
+// record body, or either.
+func TestFilterScopes(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	tests := []struct {
+		expr string
+		want int
+	}{
+		// "privacy" is a 650 subject, absent from the list key.
+		{"privacy", 0},
+		{"rec:privacy", 1},
+		{"all:privacy", 1},
+		// "2002" is in the list key (year) but not in any subfield of record 1
+		// other than 260 $c, which the record scope does see.
+		{"kloza", 1},
+		{"rec:kloza", 1},
+		{"tag:650 rec:privacy", 1},
+		{"tag:856 rec:privacy", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			m.setFilter(tt.expr)
+			if got := len(m.list.Items()); got != tt.want {
+				t.Errorf("%q kept %d records, want %d", tt.expr, got, tt.want)
+			}
+		})
+	}
+}
+
+// s cycles the scope and re-applies the current filter.
+func TestCycleScope(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.setFilter("privacy")
+
+	if len(m.list.Items()) != 0 {
+		t.Fatalf("titles scope kept %d records, want 0", len(m.list.Items()))
+	}
+
+	press(m, "s") // titles -> record
+	if m.filter.scope != marcio.ScopeRecord {
+		t.Fatalf("scope after one press = %v, want record", m.filter.scope)
+	}
+	if got := len(m.list.Items()); got != 1 {
+		t.Errorf("record scope kept %d records, want 1", got)
+	}
+	if !strings.Contains(stripANSI(m.footer()), "record") {
+		t.Errorf("the status line does not name the scope:\n%s", stripANSI(m.footer()))
+	}
+
+	press(m, "s") // record -> both
+	if m.filter.scope != marcio.ScopeBoth {
+		t.Errorf("scope after two presses = %v, want both", m.filter.scope)
+	}
+	press(m, "s") // both -> titles
+	if m.filter.scope != marcio.ScopeTitles {
+		t.Errorf("scope wrapped to %v, want titles", m.filter.scope)
+	}
+}
+
+// Reopening the prompt shows the expression that produced the current result.
+func TestFilterExpressionKeepsScope(t *testing.T) {
+	m := newLoaded(t)
+	for _, expr := range []string{"", "brussels", "rec:brussels", "all:brussels", "tag:856 rec:brussels"} {
+		m.setFilter(expr)
+		if got := m.filterExpression(); got != expr {
+			t.Errorf("filterExpression() = %q, want %q", got, expr)
+		}
 	}
 }

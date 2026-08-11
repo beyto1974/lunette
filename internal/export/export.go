@@ -74,15 +74,13 @@ func Write(w io.Writer, recs []*marc.Record, format Format) error {
 
 // Criteria narrows a record set. Empty criteria match everything.
 type Criteria struct {
-	// Query is matched case-insensitively against the record's search key -
-	// control number, title, author and year - or, with FullText, against
-	// every subfield value in the record.
+	// Query is matched case-insensitively, in the given Scope.
 	Query string
 	// Tag, when set, requires the record to carry that field.
 	Tag string
-	// FullText widens Query to the whole record. It costs a walk of every
-	// field per record, so it is opt-in.
-	FullText bool
+	// Scope decides which index Query is matched against. The zero value
+	// searches the list key alone, which is the cheap one.
+	Scope marcio.Scope
 }
 
 // Filter keeps the records matching c, preserving their order.
@@ -99,11 +97,11 @@ func Filter(recs []*marc.Record, c Criteria) []*marc.Record {
 			continue
 		}
 		if query != "" {
-			haystack := marcio.SearchKey(r)
-			if c.FullText {
-				haystack = marcio.FullTextKey(r)
+			var full string
+			if c.Scope.NeedsFullText() {
+				full = marcio.FullTextKey(r)
 			}
-			if !strings.Contains(haystack, query) {
+			if !c.Scope.Matches(marcio.SearchKey(r), full, query) {
 				continue
 			}
 		}

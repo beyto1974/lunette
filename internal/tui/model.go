@@ -151,9 +151,9 @@ func waitFor(ch chan loadMsg) tea.Cmd {
 
 // filterSpec is a parsed filter expression.
 type filterSpec struct {
-	query    string // lowercased free text
-	tag      string // field that must be present
-	fullText bool   // search every subfield, not just the list key
+	query string       // lowercased free text
+	tag   string       // field that must be present
+	scope marcio.Scope // which index the query is matched against
 }
 
 func (f filterSpec) empty() bool { return f.query == "" && f.tag == "" }
@@ -166,14 +166,8 @@ func (m *Model) visibleIndices() []int {
 		if m.filter.tag != "" && !marcio.HasTag(rec, m.filter.tag) {
 			continue
 		}
-		if m.filter.query != "" {
-			haystack := m.keys[i]
-			if m.filter.fullText {
-				haystack = m.fullKeys[i]
-			}
-			if !strings.Contains(haystack, m.filter.query) {
-				continue
-			}
+		if !m.recordMatches(i) {
+			continue
 		}
 		out = append(out, i)
 	}
@@ -184,7 +178,7 @@ func (m *Model) visibleIndices() []int {
 // of the result.
 func (m *Model) setFilter(expr string) tea.Cmd {
 	m.filter = parseFilter(expr)
-	if m.filter.fullText {
+	if m.filter.scope.NeedsFullText() {
 		m.buildFullKeys()
 	}
 	m.list.SetDelegate(compactDelegate{styles: m.st, match: m.filter.query})
@@ -304,17 +298,30 @@ func (m *Model) stepMatchingRecord(dir int) {
 	}
 }
 
-// recordMatches reports whether a record matches the current search term,
-// using whichever index the filter is searching.
+// recordMatches reports whether a record matches the current search term in
+// the active scope.
 func (m *Model) recordMatches(index int) bool {
 	if index < 0 || index >= len(m.keys) {
 		return false
 	}
-	haystack := m.keys[index]
-	if m.filter.fullText && index < len(m.fullKeys) {
-		haystack = m.fullKeys[index]
+	var full string
+	if index < len(m.fullKeys) {
+		full = m.fullKeys[index]
 	}
-	return strings.Contains(haystack, m.filter.query)
+	return m.filter.scope.Matches(m.keys[index], full, m.filter.query)
+}
+
+// cycleScope moves the search to the next scope and re-runs the filter.
+func (m *Model) cycleScope() tea.Cmd {
+	m.filter.scope = m.filter.scope.Next()
+	if m.filter.scope.NeedsFullText() {
+		m.buildFullKeys()
+	}
+	cmd := m.rebuildItems()
+	m.list.Select(0)
+	m.refreshDetail()
+	m.status = "search scope: " + m.filter.scope.String()
+	return cmd
 }
 
 // matchCount is how many lines of the current record match the filter.
@@ -353,19 +360,26 @@ func (m *Model) scrollToMatch() {
 }
 
 // parseFilter reads a filter expression. "tag:856 brussels" keeps records that
-// carry an 856 field and match "brussels" in the list key; an "all:" prefix
-// widens the text search to every subfield in the record.
+// carry an 856 field and match "brussels" in the list titles; a "rec:" prefix
+// searches the record body instead, and "all:" searches both.
 func parseFilter(s string) filterSpec {
-	var f filterSpec
+	f := filterSpec{scope: marcio.ScopeTitles}
 	for _, word := range strings.Fields(s) {
 		lower := strings.ToLower(word)
-		if rest, ok := strings.CutPrefix(lower, "all:"); ok {
-			f.fullText = true
-			lower, word = rest, rest
-			if word == "" {
-				continue
+
+		for prefix, scope := range map[string]marcio.Scope{
+			"all:": marcio.ScopeBoth,
+			"rec:": marcio.ScopeRecord,
+		} {
+			if rest, ok := strings.CutPrefix(lower, prefix); ok {
+				f.scope = scope
+				lower, word = rest, rest
 			}
 		}
+		if word == "" {
+			continue
+		}
+
 		if rest, ok := strings.CutPrefix(lower, "tag:"); ok {
 			f.tag = rest
 			continue

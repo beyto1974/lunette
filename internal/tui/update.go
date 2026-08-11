@@ -150,6 +150,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return nil
 
+	case key.Matches(msg, k.Scope):
+		return m.cycleScope()
+
 	case key.Matches(msg, k.Copy):
 		return m.copyCurrent()
 	}
@@ -223,8 +226,11 @@ func (m *Model) filterExpression() string {
 		if s != "" {
 			s += " "
 		}
-		if m.filter.fullText {
+		switch m.filter.scope {
+		case marcio.ScopeBoth:
 			s += "all:"
+		case marcio.ScopeRecord:
+			s += "rec:"
 		}
 		s += m.filter.query
 	}

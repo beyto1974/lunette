@@ -26,5 +26,5 @@ marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 1 shown
 │                                    ││                                                            │
 │                                    ││                                                            │
 ╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────╯
-filter all:privacy
+filter privacy in both
 / filter • n next match • : jump to record • tab switch pane • c compact • y copy record • ? help …

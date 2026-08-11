@@ -105,34 +105,36 @@ func TestFilter(t *testing.T) {
 	recs := load(t)
 
 	tests := []struct {
-		name     string
-		query    string
-		tag      string
-		fullText bool
-		want     int
+		name  string
+		query string
+		tag   string
+		scope marcio.Scope
+		want  int
 	}{
-		{"no criteria keeps everything", "", "", false, 3},
-		{"query matches title", "transmission", "", false, 1},
-		{"query is case-insensitive", "TRANSMISSION", "", false, 1},
-		{"query matches author", "kloza", "", false, 1},
-		{"query matches control number", "rec-0003", "", false, 1},
-		{"query matching nothing", "zzzz", "", false, 0},
-		{"tag present", "", "856", false, 1},
-		{"tag absent", "", "245", false, 3},
-		{"query and tag combined", "transmission", "856", false, 1},
-		{"query and tag disagree", "kloza", "856", false, 0},
+		{"no criteria keeps everything", "", "", marcio.ScopeTitles, 3},
+		{"query matches title", "transmission", "", marcio.ScopeTitles, 1},
+		{"query is case-insensitive", "TRANSMISSION", "", marcio.ScopeTitles, 1},
+		{"query matches author", "kloza", "", marcio.ScopeTitles, 1},
+		{"query matches control number", "rec-0003", "", marcio.ScopeTitles, 1},
+		{"query matching nothing", "zzzz", "", marcio.ScopeTitles, 0},
+		{"tag present", "", "856", marcio.ScopeTitles, 1},
+		{"tag absent", "", "245", marcio.ScopeTitles, 3},
+		{"query and tag combined", "transmission", "856", marcio.ScopeTitles, 1},
+		{"query and tag disagree", "kloza", "856", marcio.ScopeTitles, 0},
 		// "Privacy" is a 650 subject, outside the list key.
-		{"subject misses the key", "privacy", "", false, 0},
-		{"subject found in full text", "privacy", "", true, 1},
-		{"full text still honours the tag", "privacy", "856", true, 0},
-		{"full text finds control-field data", "181023", "", true, 1},
+		{"subject misses the key", "privacy", "", marcio.ScopeTitles, 0},
+		{"subject found in the record scope", "privacy", "", marcio.ScopeRecord, 1},
+		{"subject found in both", "privacy", "", marcio.ScopeBoth, 1},
+		{"the record scope still honours the tag", "privacy", "856", marcio.ScopeRecord, 0},
+		{"the record scope finds control-field data", "181023", "", marcio.ScopeRecord, 1},
+		{"the titles scope does not", "181023", "", marcio.ScopeTitles, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Filter(recs, Criteria{Query: tt.query, Tag: tt.tag, FullText: tt.fullText})
+			got := Filter(recs, Criteria{Query: tt.query, Tag: tt.tag, Scope: tt.scope})
 			if len(got) != tt.want {
-				t.Errorf("Filter(%q, %q, full=%v) kept %d records, want %d",
-					tt.query, tt.tag, tt.fullText, len(got), tt.want)
+				t.Errorf("Filter(%q, %q, scope=%v) kept %d records, want %d",
+					tt.query, tt.tag, tt.scope, len(got), tt.want)
 			}
 		})
 	}

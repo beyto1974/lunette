@@ -160,7 +160,8 @@ with the existing `export --filter`.
 ### 2.4 Filter history and better query syntax — S
 
 `year:2020`, `has:856`, `-tag:650` (negation), and recall of previous filters
-with `↑` in the prompt. The current syntax handles text plus one `tag:`.
+with `↑` in the prompt. The current syntax handles text, one `tag:`, and a
+scope prefix.
 
 ### 2.5 Configurable colours — S
 

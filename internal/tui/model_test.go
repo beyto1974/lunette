@@ -157,25 +157,27 @@ func TestParseFilter(t *testing.T) {
 		in        string
 		wantQuery string
 		wantTag   string
-		wantAll   bool
+		wantScope marcio.Scope
 	}{
-		{"", "", "", false},
-		{"brussels", "brussels", "", false},
-		{"BRUSSELS", "brussels", "", false},
-		{"tag:856", "", "856", false},
-		{"tag:856 brussels", "brussels", "856", false},
-		{"brussels tag:856", "brussels", "856", false},
-		{"two words", "two words", "", false},
-		{"all:brussels", "brussels", "", true},
-		{"all:tag:856", "", "856", true},
-		{"all: brussels", "brussels", "", true},
-		{"tag:856 all:brussels", "brussels", "856", true},
+		{"", "", "", marcio.ScopeTitles},
+		{"brussels", "brussels", "", marcio.ScopeTitles},
+		{"BRUSSELS", "brussels", "", marcio.ScopeTitles},
+		{"tag:856", "", "856", marcio.ScopeTitles},
+		{"tag:856 brussels", "brussels", "856", marcio.ScopeTitles},
+		{"brussels tag:856", "brussels", "856", marcio.ScopeTitles},
+		{"two words", "two words", "", marcio.ScopeTitles},
+		{"all:brussels", "brussels", "", marcio.ScopeBoth},
+		{"all:tag:856", "", "856", marcio.ScopeBoth},
+		{"all: brussels", "brussels", "", marcio.ScopeBoth},
+		{"tag:856 all:brussels", "brussels", "856", marcio.ScopeBoth},
+		{"rec:brussels", "brussels", "", marcio.ScopeRecord},
+		{"tag:856 rec:brussels", "brussels", "856", marcio.ScopeRecord},
 	}
 	for _, tt := range tests {
 		f := parseFilter(tt.in)
-		if f.query != tt.wantQuery || f.tag != tt.wantTag || f.fullText != tt.wantAll {
+		if f.query != tt.wantQuery || f.tag != tt.wantTag || f.scope != tt.wantScope {
 			t.Errorf("parseFilter(%q) = (%q, %q, %v), want (%q, %q, %v)",
-				tt.in, f.query, f.tag, f.fullText, tt.wantQuery, tt.wantTag, tt.wantAll)
+				tt.in, f.query, f.tag, f.scope, tt.wantQuery, tt.wantTag, tt.wantScope)
 		}
 	}
 }

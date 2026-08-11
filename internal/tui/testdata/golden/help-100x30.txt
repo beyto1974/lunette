@@ -20,7 +20,6 @@ marcview · ../../testdata/sample.mrc · MARC21 · 3 records
 │                                    ││856 40 Electronic Location and Access                       │
 │                                    ││       $u https://biblio.vub.ac.be/vubir/rec-0001.html      │
 │                                    ││                                                            │
-│                                    ││                                                            │
 ╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────╯
 no filter
 ↑/k up             ^u  half page up      n next match        a annotated
@@ -28,3 +27,4 @@ no filter
 g   top            /   filter            y copy record       r raw      
 G   bottom         :   jump to record    ? help              J json     
 tab switch pane    esc clear filter      q quit              X xml      
+                   s   search scope                                     

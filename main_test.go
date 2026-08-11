@@ -106,17 +106,25 @@ func TestShowFullTextFilter(t *testing.T) {
 		t.Errorf("key filter matched %d records for a 650 subject, want 0", n)
 	}
 
-	out, _, err = exec(t, "show", "-mode", "raw", "-all", "-filter", "privacy", sample)
-	if err != nil {
-		t.Fatalf("show -all: %v", err)
+	for _, flag := range [][]string{{"-all"}, {"-scope", "record"}, {"-scope", "both"}} {
+		args := append([]string{"show", "-mode", "raw"}, flag...)
+		args = append(args, "-filter", "privacy", sample)
+		out, _, err = exec(t, args...)
+		if err != nil {
+			t.Fatalf("show %v: %v", flag, err)
+		}
+		if n := strings.Count(out, "=LDR"); n != 1 {
+			t.Errorf("show %v matched %d records, want 1", flag, n)
+		}
 	}
-	if n := strings.Count(out, "=LDR"); n != 1 {
-		t.Errorf("-all matched %d records, want 1", n)
+
+	if _, _, err := exec(t, "show", "-scope", "everything", sample); err == nil {
+		t.Error("show accepted an unknown scope")
 	}
 }
 
 func TestExportFullTextFilter(t *testing.T) {
-	out, _, err := exec(t, "export", "-format", "json", "-all", "-filter", "privacy", sample)
+	out, _, err := exec(t, "export", "-format", "json", "-scope", "record", "-filter", "privacy", sample)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}

@@ -26,5 +26,5 @@ marcview · ../../testdata/sample.mrc · MARC21 · 3 records · 0 shown
 │                                    ││                                                            │
 │                                    ││                                                            │
 ╰────────────────────────────────────╯╰────────────────────────────────────────────────────────────╯
-filter match:zzzz
+filter zzzz in titles
 / filter • n next match • : jump to record • tab switch pane • c compact • y copy record • ? help …

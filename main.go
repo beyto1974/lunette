@@ -64,7 +64,8 @@ show flags:
   -mode annotated|compact|raw|json|xml   rendering (default annotated)
   -n N                                   stop after N records (0 = all)
   -filter Q                              keep records matching Q
-  -all                                   match -filter against every subfield
+  -scope titles|record|both              where -filter looks (default titles)
+  -all                                   shorthand for -scope both
   -tag NNN                               keep records carrying field NNN
   -width N                               wrap long fields at N columns
   -indent                                pretty-print the json and xml modes
@@ -74,7 +75,8 @@ export flags:
   -format mrc|xml|json                   output encoding (required)
   -o FILE                                output file (default stdout)
   -filter Q                              keep records matching Q
-  -all                                   match -filter against every subfield
+  -scope titles|record|both              where -filter looks (default titles)
+  -all                                   shorthand for -scope both
   -tag NNN                               keep records carrying field NNN
 `)
 }
@@ -90,6 +92,15 @@ func runView(args []string) error {
 	return tui.Run(fs.Arg(0))
 }
 
+// searchScope resolves the -scope flag, with -all as a shorthand kept for the
+// flag that predates the three-way choice.
+func searchScope(name string, all bool) (marcio.Scope, error) {
+	if all {
+		return marcio.ScopeBoth, nil
+	}
+	return marcio.ParseScope(name)
+}
+
 func runShow(args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("show", flag.ContinueOnError)
 	fs.SetOutput(stdout)
@@ -97,7 +108,8 @@ func runShow(args []string, stdout io.Writer) error {
 	limit := fs.Int("n", 0, "stop after N records (0 = all)")
 	query := fs.String("filter", "", "keep records matching this text")
 	tag := fs.String("tag", "", "keep records carrying this field")
-	all := fs.Bool("all", false, "match -filter against every subfield, not just title/author/id")
+	scope := fs.String("scope", "titles", "where -filter looks: titles, record or both")
+	all := fs.Bool("all", false, "shorthand for -scope both")
 	width := fs.Int("width", 0, "wrap long fields at this many columns (0 = no wrapping)")
 	indent := fs.Bool("indent", false, "pretty-print the json and xml modes")
 	color := fs.Bool("color", false, "force ANSI colour")
@@ -117,7 +129,11 @@ func runShow(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, FullText: *all})
+	sc, err := searchScope(*scope, *all)
+	if err != nil {
+		return err
+	}
+	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, Scope: sc})
 	if *limit > 0 && *limit < len(recs) {
 		recs = recs[:*limit]
 	}
@@ -144,7 +160,8 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	outPath := fs.String("o", "", "output file (default stdout)")
 	query := fs.String("filter", "", "keep records matching this text")
 	tag := fs.String("tag", "", "keep records carrying this field")
-	all := fs.Bool("all", false, "match -filter against every subfield, not just title/author/id")
+	scope := fs.String("scope", "titles", "where -filter looks: titles, record or both")
+	all := fs.Bool("all", false, "shorthand for -scope both")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -160,7 +177,11 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, FullText: *all})
+	sc, err := searchScope(*scope, *all)
+	if err != nil {
+		return err
+	}
+	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, Scope: sc})
 
 	w := stdout
 	if *outPath != "" {

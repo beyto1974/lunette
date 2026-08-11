@@ -50,7 +50,8 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 | `g` / `G` | First / last record |
 | `tab`, `enter` | Switch focus between the panes |
 | `ctrl+u` / `ctrl+d` | Half-page scroll in the record pane |
-| `/` | Filter (`tag:856 brussels` narrows by field and text; `all:` searches every subfield) |
+| `/` | Filter (`tag:856 brussels` narrows by field and text) |
+| `s` | Cycle where the search looks: titles → record → both |
 | `n` / `N` | Next / previous match — between records with the list focused, within the record with the record focused |
 | `esc` | Clear the filter |
 | `:` | Jump to a record number |
@@ -92,10 +93,19 @@ marcview export -format mrc -tag 856 -o links.mrc records.mrc
 
 `show` prints plain text when piped; add `-color` to force ANSI.
 
-By default a filter matches the record's control number, title, author and
-year. `-all` (or the `all:` prefix in the browser) searches every subfield
-instead, which finds terms that only appear in a subject or a note — on a
-5572-record harvest, `privacy` matches 21 records by key and 54 in full text.
+A search has a scope, because the two panes hold different text:
+
+| Scope | Reads | In the browser | On the command line |
+|---|---|---|---|
+| `titles` (default) | Control number, title, author, year — what the left pane shows | no prefix | `-scope titles` |
+| `record` | Every subfield and control field — what the right pane shows | `rec:` prefix | `-scope record` |
+| `both` | Either | `all:` prefix | `-scope both`, or `-all` |
+
+`s` cycles the scope in the browser and re-runs the current filter. The default
+is the cheap one: the titles index is built at load, the record index walks
+every field and is only built when a scope needs it. The difference is not
+academic — on a 5572-record harvest, `privacy` matches 21 records by title and
+54 by record body, because most of those hits are 650 subject headings.
 
 ## Views and highlighting
 

@@ -15,6 +15,7 @@ type KeyMap struct {
 	Filter    key.Binding
 	Jump      key.Binding
 	Clear     key.Binding
+	Scope     key.Binding
 	Annotated key.Binding
 	Compact   key.Binding
 	Raw       key.Binding
@@ -39,6 +40,7 @@ func defaultKeyMap() KeyMap {
 		Filter:    key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Jump:      key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "jump to record")),
 		Clear:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
+		Scope:     key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "search scope")),
 		Annotated: key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "annotated")),
 		Compact:   key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "compact")),
 		Raw:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "raw")),
@@ -63,7 +65,7 @@ func (k KeyMap) ShortHelp() []key.Binding {
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Top, k.Bottom, k.Switch},
-		{k.HalfUp, k.HalfDown, k.Filter, k.Jump, k.Clear},
+		{k.HalfUp, k.HalfDown, k.Filter, k.Jump, k.Clear, k.Scope},
 		{k.NextMatch, k.PrevMatch, k.Copy, k.Help, k.Quit},
 		{k.Annotated, k.Compact, k.Raw, k.JSON, k.XML},
 	}
