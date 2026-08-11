@@ -132,6 +132,33 @@ func TestAccessors(t *testing.T) {
 	}
 }
 
+// SearchKey only covers the fields shown in the list, so a term living in a
+// subject or a note needs the full-text key instead.
+func TestFullTextKey(t *testing.T) {
+	res, err := LoadFile(testdata(t, "sample.mrc"))
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	second := res.Records[1]
+
+	if strings.Contains(SearchKey(second), "privacy") {
+		t.Fatal("fixture assumption broken: 650 $a Privacy is already in the search key")
+	}
+	key := FullTextKey(second)
+	for _, want := range []string{"privacy", "kloza", "café-cultuur", "rec-0002"} {
+		if !strings.Contains(key, want) {
+			t.Errorf("FullTextKey = %q, want it to contain %q", key, want)
+		}
+	}
+	if key != strings.ToLower(key) {
+		t.Errorf("FullTextKey = %q, want lowercase", key)
+	}
+	// Control-field data counts too.
+	if !strings.Contains(FullTextKey(res.Records[0]), "181023") {
+		t.Error("FullTextKey should include control-field data")
+	}
+}
+
 func TestHasTag(t *testing.T) {
 	res, err := LoadFile(testdata(t, "sample.mrc"))
 	if err != nil {

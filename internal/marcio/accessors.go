@@ -80,6 +80,26 @@ func HasTag(r *marc.Record, tag string) bool {
 	return r.Get(tag) != nil
 }
 
+// FullTextKey is every value in the record, lowercased: control-field data and
+// all subfield values. It backs the "all:" filter, and is built on demand
+// rather than at load time because it costs roughly as much memory as the
+// records themselves.
+func FullTextKey(r *marc.Record) string {
+	var b strings.Builder
+	for _, f := range r.Fields {
+		if f.IsControlField() {
+			b.WriteString(f.Data)
+			b.WriteByte(' ')
+			continue
+		}
+		for _, sf := range f.Subfields {
+			b.WriteString(sf.Value)
+			b.WriteByte(' ')
+		}
+	}
+	return strings.ToLower(b.String())
+}
+
 // SearchKey is the lowercased haystack the TUI filters against. It is built
 // once at load time so that filtering never walks the record's fields again.
 func SearchKey(r *marc.Record) string {

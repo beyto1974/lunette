@@ -58,17 +58,19 @@ Input may be binary MARC21 (.mrc) or MARCXML; the format is detected from the
 file's first bytes.
 
 show flags:
-  -mode annotated|raw|json|xml   rendering (default annotated)
-  -n N                           stop after N records (0 = all)
-  -filter Q                      keep records matching Q
-  -tag NNN                       keep records carrying field NNN
-  -color                         force ANSI colour when not a terminal
+  -mode annotated|compact|raw|json|xml   rendering (default annotated)
+  -n N                                   stop after N records (0 = all)
+  -filter Q                              keep records matching Q
+  -all                                   match -filter against every subfield
+  -tag NNN                               keep records carrying field NNN
+  -color                                 force ANSI colour when not a terminal
 
 export flags:
-  -format mrc|xml|json           output encoding (required)
-  -o FILE                        output file (default stdout)
-  -filter Q                      keep records matching Q
-  -tag NNN                       keep records carrying field NNN
+  -format mrc|xml|json                   output encoding (required)
+  -o FILE                                output file (default stdout)
+  -filter Q                              keep records matching Q
+  -all                                   match -filter against every subfield
+  -tag NNN                               keep records carrying field NNN
 `)
 }
 
@@ -90,6 +92,7 @@ func runShow(args []string, stdout io.Writer) error {
 	limit := fs.Int("n", 0, "stop after N records (0 = all)")
 	query := fs.String("filter", "", "keep records matching this text")
 	tag := fs.String("tag", "", "keep records carrying this field")
+	all := fs.Bool("all", false, "match -filter against every subfield, not just title/author/id")
 	color := fs.Bool("color", false, "force ANSI colour")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -107,7 +110,7 @@ func runShow(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	recs := export.Filter(res.Records, *query, *tag)
+	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, FullText: *all})
 	if *limit > 0 && *limit < len(recs) {
 		recs = recs[:*limit]
 	}
@@ -134,6 +137,7 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	outPath := fs.String("o", "", "output file (default stdout)")
 	query := fs.String("filter", "", "keep records matching this text")
 	tag := fs.String("tag", "", "keep records carrying this field")
+	all := fs.Bool("all", false, "match -filter against every subfield, not just title/author/id")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -149,7 +153,7 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	recs := export.Filter(res.Records, *query, *tag)
+	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, FullText: *all})
 
 	w := stdout
 	if *outPath != "" {

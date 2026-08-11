@@ -60,6 +60,7 @@ func TestValidateReportsFailures(t *testing.T) {
 func TestShowModes(t *testing.T) {
 	tests := map[string]string{
 		"annotated": "Title Statement",
+		"compact":   "245 10 $a Identification",
 		"raw":       "=245",
 		"json":      "\"leader\"",
 		"xml":       "<record",
@@ -92,6 +93,39 @@ func TestShowLimitAndFilter(t *testing.T) {
 	}
 	if n := strings.Count(out, "=LDR"); n != 2 {
 		t.Errorf("-n 2 returned %d records, want 2", n)
+	}
+}
+
+// -all widens the filter from the list key to every subfield.
+func TestShowFullTextFilter(t *testing.T) {
+	out, _, err := exec(t, "show", "-mode", "raw", "-filter", "privacy", sample)
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	if n := strings.Count(out, "=LDR"); n != 0 {
+		t.Errorf("key filter matched %d records for a 650 subject, want 0", n)
+	}
+
+	out, _, err = exec(t, "show", "-mode", "raw", "-all", "-filter", "privacy", sample)
+	if err != nil {
+		t.Fatalf("show -all: %v", err)
+	}
+	if n := strings.Count(out, "=LDR"); n != 1 {
+		t.Errorf("-all matched %d records, want 1", n)
+	}
+}
+
+func TestExportFullTextFilter(t *testing.T) {
+	out, _, err := exec(t, "export", "-format", "json", "-all", "-filter", "privacy", sample)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	var v []any
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Fatalf("export did not produce JSON: %v", err)
+	}
+	if len(v) != 1 {
+		t.Errorf("exported %d records, want 1", len(v))
 	}
 }
 

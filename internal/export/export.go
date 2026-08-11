@@ -72,11 +72,23 @@ func Write(w io.Writer, recs []*marc.Record, format Format) error {
 	}
 }
 
-// Filter keeps the records whose search key contains query (case-insensitive)
-// and which carry the given tag. Empty criteria match everything.
-func Filter(recs []*marc.Record, query, tag string) []*marc.Record {
-	query = strings.ToLower(strings.TrimSpace(query))
-	tag = strings.TrimSpace(tag)
+// Criteria narrows a record set. Empty criteria match everything.
+type Criteria struct {
+	// Query is matched case-insensitively against the record's search key -
+	// control number, title, author and year - or, with FullText, against
+	// every subfield value in the record.
+	Query string
+	// Tag, when set, requires the record to carry that field.
+	Tag string
+	// FullText widens Query to the whole record. It costs a walk of every
+	// field per record, so it is opt-in.
+	FullText bool
+}
+
+// Filter keeps the records matching c, preserving their order.
+func Filter(recs []*marc.Record, c Criteria) []*marc.Record {
+	query := strings.ToLower(strings.TrimSpace(c.Query))
+	tag := strings.TrimSpace(c.Tag)
 	if query == "" && tag == "" {
 		return recs
 	}
@@ -86,8 +98,14 @@ func Filter(recs []*marc.Record, query, tag string) []*marc.Record {
 		if tag != "" && !marcio.HasTag(r, tag) {
 			continue
 		}
-		if query != "" && !strings.Contains(marcio.SearchKey(r), query) {
-			continue
+		if query != "" {
+			haystack := marcio.SearchKey(r)
+			if c.FullText {
+				haystack = marcio.FullTextKey(r)
+			}
+			if !strings.Contains(haystack, query) {
+				continue
+			}
 		}
 		out = append(out, r)
 	}

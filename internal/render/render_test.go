@@ -99,6 +99,32 @@ func TestRaw(t *testing.T) {
 	}
 }
 
+// Compact puts a whole field on one line, keeping the '#' indicator
+// convention but dropping the labels and the per-subfield line breaks.
+func TestCompact(t *testing.T) {
+	recs := load(t)
+	out := render(t, recs[0], Compact, Options{})
+
+	for _, want := range []string{
+		"LDR    00297nam a2200097 a 4500",
+		"001    rec-0001",
+		"245 10 $a Identification of Transmission Lines $b from time-domain measurements",
+		"260 ## $c 2002",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("compact output missing line %q\n---\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Title Statement") {
+		t.Error("compact output must not carry field labels")
+	}
+
+	// One line per field, plus the leader.
+	if got, want := len(strings.Split(out, "\n")), len(recs[0].Fields)+1; got != want {
+		t.Errorf("compact used %d lines for %d fields, want %d", got, len(recs[0].Fields), want)
+	}
+}
+
 func TestJSONIsValid(t *testing.T) {
 	recs := load(t)
 	out := render(t, recs[0], JSON, Options{})
@@ -120,7 +146,7 @@ func TestXMLIsValid(t *testing.T) {
 // byte-comparable.
 func TestPlainOutputHasNoEscapes(t *testing.T) {
 	recs := load(t)
-	for _, mode := range []Mode{Annotated, Raw, JSON, XML} {
+	for _, mode := range Modes() {
 		out := render(t, recs[0], mode, Options{})
 		if strings.Contains(out, "\x1b[") {
 			t.Errorf("%v: plain output contains ANSI escapes", mode)
@@ -130,7 +156,7 @@ func TestPlainOutputHasNoEscapes(t *testing.T) {
 
 func TestColorOutputHasEscapes(t *testing.T) {
 	recs := load(t)
-	for _, mode := range []Mode{Annotated, Raw, JSON, XML} {
+	for _, mode := range Modes() {
 		out := render(t, recs[0], mode, Options{Color: true})
 		if !strings.Contains(out, "\x1b[") {
 			t.Errorf("%v: coloured output contains no ANSI escapes\n---\n%s", mode, out)
@@ -180,6 +206,15 @@ func TestModeString(t *testing.T) {
 	}
 	if got, err := ParseMode("json"); err != nil || got != JSON {
 		t.Errorf("ParseMode(json) = %v, %v", got, err)
+	}
+	if got, err := ParseMode("compact"); err != nil || got != Compact {
+		t.Errorf("ParseMode(compact) = %v, %v", got, err)
+	}
+	if Compact.String() != "compact" {
+		t.Errorf("Compact.String() = %q", Compact.String())
+	}
+	if len(Modes()) != 5 {
+		t.Errorf("Modes() has %d entries, want 5", len(Modes()))
 	}
 	if _, err := ParseMode("nope"); err == nil {
 		t.Error("ParseMode accepted an unknown mode")

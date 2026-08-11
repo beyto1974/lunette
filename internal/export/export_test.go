@@ -105,27 +105,34 @@ func TestFilter(t *testing.T) {
 	recs := load(t)
 
 	tests := []struct {
-		name  string
-		query string
-		tag   string
-		want  int
+		name     string
+		query    string
+		tag      string
+		fullText bool
+		want     int
 	}{
-		{"no criteria keeps everything", "", "", 3},
-		{"query matches title", "transmission", "", 1},
-		{"query is case-insensitive", "TRANSMISSION", "", 1},
-		{"query matches author", "kloza", "", 1},
-		{"query matches control number", "rec-0003", "", 1},
-		{"query matching nothing", "zzzz", "", 0},
-		{"tag present", "", "856", 1},
-		{"tag absent", "", "245", 3},
-		{"query and tag combined", "transmission", "856", 1},
-		{"query and tag disagree", "kloza", "856", 0},
+		{"no criteria keeps everything", "", "", false, 3},
+		{"query matches title", "transmission", "", false, 1},
+		{"query is case-insensitive", "TRANSMISSION", "", false, 1},
+		{"query matches author", "kloza", "", false, 1},
+		{"query matches control number", "rec-0003", "", false, 1},
+		{"query matching nothing", "zzzz", "", false, 0},
+		{"tag present", "", "856", false, 1},
+		{"tag absent", "", "245", false, 3},
+		{"query and tag combined", "transmission", "856", false, 1},
+		{"query and tag disagree", "kloza", "856", false, 0},
+		// "Privacy" is a 650 subject, outside the list key.
+		{"subject misses the key", "privacy", "", false, 0},
+		{"subject found in full text", "privacy", "", true, 1},
+		{"full text still honours the tag", "privacy", "856", true, 0},
+		{"full text finds control-field data", "181023", "", true, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Filter(recs, tt.query, tt.tag)
+			got := Filter(recs, Criteria{Query: tt.query, Tag: tt.tag, FullText: tt.fullText})
 			if len(got) != tt.want {
-				t.Errorf("Filter(%q, %q) kept %d records, want %d", tt.query, tt.tag, len(got), tt.want)
+				t.Errorf("Filter(%q, %q, full=%v) kept %d records, want %d",
+					tt.query, tt.tag, tt.fullText, len(got), tt.want)
 			}
 		})
 	}

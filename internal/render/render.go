@@ -18,6 +18,7 @@ type Mode int
 
 const (
 	Annotated Mode = iota
+	Compact
 	Raw
 	JSON
 	XML
@@ -27,6 +28,8 @@ func (m Mode) String() string {
 	switch m {
 	case Annotated:
 		return "annotated"
+	case Compact:
+		return "compact"
 	case Raw:
 		return "raw"
 	case JSON:
@@ -40,16 +43,16 @@ func (m Mode) String() string {
 
 // ParseMode maps a mode name to a Mode.
 func ParseMode(s string) (Mode, error) {
-	for _, m := range []Mode{Annotated, Raw, JSON, XML} {
+	for _, m := range Modes() {
 		if m.String() == strings.ToLower(strings.TrimSpace(s)) {
 			return m, nil
 		}
 	}
-	return Annotated, fmt.Errorf("unknown render mode %q (want annotated, raw, json or xml)", s)
+	return Annotated, fmt.Errorf("unknown render mode %q (want annotated, compact, raw, json or xml)", s)
 }
 
 // Modes lists every mode in toggle order.
-func Modes() []Mode { return []Mode{Annotated, Raw, JSON, XML} }
+func Modes() []Mode { return []Mode{Annotated, Compact, Raw, JSON, XML} }
 
 // Options controls a single render.
 type Options struct {
@@ -74,6 +77,8 @@ func Render(rec *marc.Record, mode Mode, o Options) (string, error) {
 	switch mode {
 	case Annotated:
 		return annotated(rec, o), nil
+	case Compact:
+		return compact(rec, o), nil
 	case Raw:
 		return raw(rec, o), nil
 	case JSON:
@@ -150,6 +155,40 @@ func raw(rec *marc.Record, o Options) string {
 		b.WriteString(p.leader.Render(line))
 	}
 	return b.String()
+}
+
+// compact is one field per line with its subfields inline. It keeps the tag,
+// the '#' convention for blank indicators and the colours of the annotated
+// view, but drops the labels and the line breaks - the density you want when
+// scanning or comparing records rather than reading one.
+func compact(rec *marc.Record, o Options) string {
+	p := newPalette()
+	if !o.Color {
+		p = plainPalette()
+	}
+
+	var b strings.Builder
+	if rec.Leader != nil {
+		fmt.Fprintf(&b, "%s    %s\n", p.tag.Render("LDR"), p.leader.Render(rec.Leader.String()))
+	}
+
+	for _, f := range rec.Fields {
+		if f.IsControlField() {
+			fmt.Fprintf(&b, "%s    %s\n", p.tag.Render(f.Tag), p.value(f.Data, o.Match))
+			continue
+		}
+
+		fmt.Fprintf(&b, "%s %s%s",
+			p.tag.Render(f.Tag),
+			p.ind.Render(indicator(f.Indicator1())),
+			p.ind.Render(indicator(f.Indicator2())),
+		)
+		for _, sf := range f.Subfields {
+			fmt.Fprintf(&b, " %s %s", p.code.Render("$"+sf.Code), p.value(sf.Value, o.Match))
+		}
+		b.WriteByte('\n')
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // annotated is the reading view: decoded leader, then every field with its
