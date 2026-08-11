@@ -119,6 +119,10 @@ func RenderLayout(rec *marc.Record, mode Mode, o Options) (Layout, error) {
 		if err != nil {
 			return Layout{}, err
 		}
+		// Defuse before indenting: the writer emits one line, so any control
+		// character in it came from the record, while the newlines added by
+		// indenting are structure and must survive.
+		s = defuse(s)
 		if o.Indent {
 			s = indentJSON(s)
 		}
@@ -128,6 +132,7 @@ func RenderLayout(rec *marc.Record, mode Mode, o Options) (Layout, error) {
 		if err != nil {
 			return Layout{}, err
 		}
+		s = defuse(s)
 		if o.Indent {
 			s = indentXML(s)
 		}
@@ -182,8 +187,13 @@ func chromaHighlight(source, lexer string, o Options) string {
 // raw is the pymarc/yaz-marcdump mnemonic form, with the tag and subfield
 // delimiters tinted when colour is on.
 func raw(rec *marc.Record, o Options) Layout {
-	text := rec.String()
-	lines := strings.Split(text, "\n")
+	// The line breaks between fields are gomarc's own structure, so defuse
+	// each line rather than the whole string, which would turn them into ^J.
+	lines := strings.Split(rec.String(), "\n")
+	for i, line := range lines {
+		lines[i] = Sanitize(line)
+	}
+	text := strings.Join(lines, "\n")
 
 	// Breaker format puts each field on its own line, after the leader line.
 	var spans []FieldSpan
@@ -243,7 +253,7 @@ func compact(rec *marc.Record, o Options) Layout {
 	var b builder
 	var spans []FieldSpan
 	if rec.Leader != nil {
-		writeWrapped(&b, p.tag.Render("LDR")+"    ", p.leader.Render(rec.Leader.String()), tagIndent, o.Width)
+		writeWrapped(&b, p.tag.Render("LDR")+"    ", p.leader.Render(Sanitize(rec.Leader.String())), tagIndent, o.Width)
 	}
 
 	for _, f := range rec.Fields {
@@ -316,7 +326,7 @@ func writeLeader(b *builder, rec *marc.Record, p palette, width int) {
 		return
 	}
 	l := rec.Leader
-	writeWrapped(b, p.label.Render("LEADER")+" ", p.leader.Render(l.String()), tagIndent, width)
+	writeWrapped(b, p.label.Render("LEADER")+" ", p.leader.Render(Sanitize(l.String())), tagIndent, width)
 	writeWrapped(b, "       ", p.dim.Render(fmt.Sprintf(
 		"status=%s  type=%s  biblevel=%s  encoding=%s  desc=%s",
 		describe(l.RecordStatus(), recordStatus),

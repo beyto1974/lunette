@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/beyto1974/lunette/internal/marcio"
+	"github.com/beyto1974/lunette/internal/render"
 )
 
 // Pane geometry. The list is wide enough for an ordinal plus a readable slice
@@ -257,7 +258,7 @@ func (m *Model) currentControlNumber() string {
 	if !ok {
 		return ""
 	}
-	return marcio.ControlNumber(rec)
+	return render.Sanitize(marcio.ControlNumber(rec))
 }
 
 func scrollHint(pct float64) string {

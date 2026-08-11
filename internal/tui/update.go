@@ -249,31 +249,44 @@ func onOff(b bool) string {
 	return "off"
 }
 
-// copyCurrent puts the uncoloured rendering on the system clipboard via OSC 52,
-// which works over SSH too: the selected field when the record pane has focus,
-// the whole record otherwise.
-func (m *Model) copyCurrent() tea.Cmd {
+// clipboardPayload is the text a copy would place on the clipboard, with a
+// description of it for the status line: the selected field when the record
+// pane has focus, the whole record otherwise.
+//
+// The text is the uncoloured rendering - the pane width and colours are
+// display choices, not part of the record - and it has been through
+// render.Sanitize like everything else, because control characters pasted
+// somewhere else are no safer than control characters printed here.
+func (m *Model) clipboardPayload() (text, what string, ok bool) {
 	rec, it, ok := m.current()
 	if !ok {
-		return nil
+		return "", "", false
 	}
 
 	if m.focus == paneDetail && m.fieldCount() > 0 {
-		if text, ok := m.selectedFieldText(); ok {
-			m.status = fmt.Sprintf("copied field %s of record %d",
-				m.fields[m.fieldCursor].Tag, it.ordinal)
-			return tea.SetClipboard(text)
+		if field, ok := m.selectedFieldText(); ok {
+			return field, fmt.Sprintf("field %s of record %d",
+				render.Sanitize(m.fields[m.fieldCursor].Tag), it.ordinal), true
 		}
 	}
-	// Copy unwrapped: the pane width is a display choice, not part of the
-	// record.
+
 	out, err := render.Render(rec, m.mode, render.Options{})
 	if err != nil {
-		m.status = "copy failed: " + err.Error()
+		return "", "", false
+	}
+	return out, fmt.Sprintf("record %d as %s", it.ordinal, m.mode), true
+}
+
+// copyCurrent puts the current selection on the system clipboard via OSC 52,
+// which works over SSH too.
+func (m *Model) copyCurrent() tea.Cmd {
+	text, what, ok := m.clipboardPayload()
+	if !ok {
+		m.status = "nothing to copy"
 		return nil
 	}
-	m.status = fmt.Sprintf("copied record %d as %s", it.ordinal, m.mode)
-	return tea.SetClipboard(out)
+	m.status = "copied " + what
+	return tea.SetClipboard(text)
 }
 
 func (m *Model) openInput(mode inputMode) {

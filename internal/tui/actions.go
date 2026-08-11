@@ -8,8 +8,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	marc "github.com/beyto1974/gomarc"
-
-	"github.com/beyto1974/lunette/internal/marcio"
 )
 
 // filterBySelectedField answers "what else looks like this" for the field under
@@ -84,6 +82,11 @@ func (m *Model) openSelectedURL() tea.Cmd {
 		return nil
 	}
 
+	if err := openable(url); err != nil {
+		m.status = "will not open this link: " + err.Error()
+		return nil
+	}
+
 	open := m.openURL
 	if open == nil {
 		open = openInBrowser
@@ -111,6 +114,30 @@ func fieldURL(f *marc.Field) string {
 	return ""
 }
 
+// maxURL is a generous bound on a link worth opening; a longer one is a sign
+// of a record carrying something other than a URL.
+const maxURL = 2048
+
+// openable rejects a URL that should not be handed to another program. The
+// http and https prefixes are checked when the URL is pulled out of the
+// record, which already rules out file:// and a leading dash; this rules out
+// the control characters that a terminal, a shell history or a desktop handler
+// might act on.
+func openable(url string) error {
+	if len(url) > maxURL {
+		return fmt.Errorf("link is %d characters long", len(url))
+	}
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return fmt.Errorf("only http and https links are opened")
+	}
+	for _, r := range url {
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+			return fmt.Errorf("link contains a control character")
+		}
+	}
+	return nil
+}
+
 // openInBrowser hands a URL to the desktop. It does not wait: the browser
 // outliving the terminal session is the normal case.
 func openInBrowser(url string) error {
@@ -125,6 +152,3 @@ func openInBrowser(url string) error {
 	}
 	return cmd.Start()
 }
-
-// ensure marcio stays imported for the scope constant used in the filter above.
-var _ = marcio.ScopeRecord

@@ -84,6 +84,11 @@ func indentXML(s string) string {
 	return buf.String()
 }
 
+// defuse is Sanitize applied to a whole structured document. encoding/json
+// escapes control characters on its own, but the XML writer does not, and
+// neither is guaranteed to keep doing so.
+func defuse(s string) string { return Sanitize(s) }
+
 // highlightMatches marks every case-insensitive occurrence of match by
 // inverting it with SGR 7, closed by SGR 27.
 //

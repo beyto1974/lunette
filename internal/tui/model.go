@@ -254,9 +254,10 @@ func (m *Model) rebuildItems() tea.Cmd {
 		items[pos] = item{
 			ordinal: idx + 1,
 			index:   idx,
-			title:   marcio.Title(rec),
-			year:    marcio.Year(rec),
-			key:     m.keys[idx],
+			// Record text on its way to the terminal: see render.Sanitize.
+			title: render.Sanitize(marcio.Title(rec)),
+			year:  render.Sanitize(marcio.Year(rec)),
+			key:   m.keys[idx],
 		}
 	}
 	return m.list.SetItems(items)

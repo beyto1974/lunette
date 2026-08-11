@@ -37,8 +37,12 @@ func newPalette() palette {
 func plainPalette() palette { return palette{plain: true} }
 
 // value renders field text, highlighting every case-insensitive occurrence of
-// match. With no match, or in plain mode, the text passes through untouched.
+// match.
+//
+// Every value a record carries reaches the terminal through here, so this is
+// where control characters are defused: see Sanitize.
 func (p palette) value(s, match string) string {
+	s = Sanitize(s)
 	if p.plain || match == "" {
 		return s
 	}
