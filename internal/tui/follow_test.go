@@ -16,7 +16,7 @@ func growing(t *testing.T, n int) (path string, whole []byte) {
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	path = filepath.Join(t.TempDir(), "harvest.mrc")
+	path = filepath.ToSlash(filepath.Join(t.TempDir(), "harvest.mrc"))
 	if err := os.WriteFile(path, whole[:n], 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}

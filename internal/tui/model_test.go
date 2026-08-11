@@ -14,9 +14,17 @@ import (
 
 // newLoaded builds a model over the sample file and drains the background
 // loader, so tests see the same state the UI would after startup.
+// fixture is the path to a file under testdata, always with forward slashes.
+// The browser prints the path it was given in the title bar, and Windows
+// accepts forward slashes perfectly well, so this keeps the golden frames and
+// the title-bar assertions identical on every platform.
+func fixture(name string) string {
+	return filepath.ToSlash(filepath.Join("..", "..", "testdata", name))
+}
+
 func newLoaded(t *testing.T) *Model {
 	t.Helper()
-	m, err := New(filepath.Join("..", "..", "testdata", "sample.mrc"))
+	m, err := New(fixture("sample.mrc"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

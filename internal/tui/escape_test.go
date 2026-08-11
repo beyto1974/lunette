@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 // loadedEscapes opens the terminal-injection fixture in a sized browser.
 func loadedEscapes(t *testing.T) *Model {
 	t.Helper()
-	m, err := New(filepath.Join("..", "..", "testdata", "escapes.mrc"))
+	m, err := New(fixture("escapes.mrc"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
