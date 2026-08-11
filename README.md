@@ -160,6 +160,12 @@ UTF-8, other tools will not
 It reads raw record bytes rather than decoded records, because MARC-8 escape
 sequences and invalid UTF-8 are exactly what a decoder removes.
 
+Export corrects the label. Everything marcview writes is UTF-8 — MARCXML and
+MARC-in-JSON are UTF-8 by definition, and binary MARC21 is written as UTF-8 too
+— so every exported record carries leader/09 = `a`. Passing a blank leader
+through would mislabel the output for whoever reads it next, which is how the
+problem spreads in the first place.
+
 **Damaged records.** A bad record is reported with its ordinal and byte offset
 rather than silently dropped, and a record short enough to make the underlying
 parser panic is contained instead of taking the run down.

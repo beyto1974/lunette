@@ -199,12 +199,16 @@ thing worth running on a harvest from an unfamiliar repository.
 
 </details>
 
-### 2.9 Fix the leader on export — S
+### ~~2.9 Fix the leader on export~~ — done
 
-The records this tool was built for claim MARC-8 and hold UTF-8. `export
---fix-encoding` would set leader/09 to 'a' on the way out, so downstream tools
-that trust the leader — most of them — stop guessing. It is a one-byte change
-per record and the loader already knows when it applies.
+Export sets leader/09 to 'a' on every record, in all three formats. It turned
+out not to need a flag: everything written is UTF-8, so labelling it anything
+else is simply wrong.
+
+The proposal assumed only binary output was affected. In fact gomarc's AsMARC
+already fixed the binary leader, and the gap was in MARCXML and MARC-in-JSON,
+which carried the original blank leader inside documents that are UTF-8 by
+definition.
 
 ---
 

@@ -68,6 +68,9 @@ renders unchanged, which is how `plainPalette` works.
 - lipgloss v2 counts the border inside `Style.Width` and `Style.Height`, unlike
   v1. Passing content width squeezes the content by two cells - which is how
   the list year ended up wrapping onto its own line.
+- Everything the exporter writes is UTF-8, so `export.Write` stamps leader/09
+  as 'a'. gomarc's `AsMARC` does this for binary output already; MARCXML and
+  MARC-in-JSON needed it doing explicitly.
 - Test fixtures are committed in both encodings; regenerate `sample.mrc` from
   `sample.marcxml` with `yaz-marcdump`, never by hand.
 

@@ -32,7 +32,23 @@ func ParseFormat(s string) (Format, error) {
 }
 
 // Write serialises recs to w in the given format.
+//
+// Every format this writes is UTF-8: MARCXML and MARC-in-JSON are UTF-8 by
+// definition, and gomarc emits binary MARC21 as UTF-8 too. So every record is
+// labelled as UTF-8 on the way out. Harvested records routinely arrive with
+// leader/09 blank, which claims MARC-8; passing that leader through would
+// mislabel the output for whoever reads it next.
+//
+// This edits the leader of the records it is given rather than copying them,
+// which matches what they now hold: by this point they have been decoded to
+// Unicode.
 func Write(w io.Writer, recs []*marc.Record, format Format) error {
+	for _, r := range recs {
+		if err := labelAsUTF8(r); err != nil {
+			return err
+		}
+	}
+
 	switch format {
 	case FormatMRC:
 		writer := marc.NewWriter(w)
@@ -81,6 +97,15 @@ type Criteria struct {
 	// Scope decides which index Query is matched against. The zero value
 	// searches the list key alone, which is the cheap one.
 	Scope marcio.Scope
+}
+
+// labelAsUTF8 sets leader/09 to 'a'. Records without a leader are left alone;
+// the writers report those.
+func labelAsUTF8(r *marc.Record) error {
+	if r == nil || r.Leader == nil || r.Leader.CodingScheme() == 'a' {
+		return nil
+	}
+	return r.Leader.SetCodingScheme("a")
 }
 
 // Filter keeps the records matching c, preserving their order.
