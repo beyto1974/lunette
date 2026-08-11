@@ -5,7 +5,7 @@
   <controlfield tag="001">rec-0001</controlfield>
   <controlfield tag="008">181023s2002    be |||||||  |||||||||eng  </controlfield>
   <datafield tag="100" ind1="1" ind2=" ">
-    <subfield code="a">De Block, Wim</subfield>
+    <subfield code="a">Neirinck, Ada</subfield>
   </datafield>
   <datafield tag="245" ind1="1" ind2="0">
     <subfield code="a">Identification of Transmission Lines</subfield>
@@ -15,7 +15,7 @@
     <subfield code="c">2002</subfield>
   </datafield>
   <datafield tag="856" ind1="4" ind2="0">
-    <subfield code="u">https://biblio.vub.ac.be/vubir/rec-0001.html</subfield>
+    <subfield code="u">https://example.org/collection/rec-0001.html</subfield>
   </datafield>
 </record>
 <record>
@@ -23,7 +23,7 @@
   <controlfield tag="001">rec-0002</controlfield>
   <controlfield tag="008">181019s2018    be |||||||  |||||||||dut  </controlfield>
   <datafield tag="100" ind1="1" ind2=" ">
-    <subfield code="a">Kloza, Dariusz</subfield>
+    <subfield code="a">Vandaele, Mira</subfield>
   </datafield>
   <datafield tag="245" ind1="1" ind2="0">
     <subfield code="a">Gegevensbescherming en café-cultuur</subfield>

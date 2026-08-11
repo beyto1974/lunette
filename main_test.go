@@ -80,7 +80,7 @@ func TestShowModes(t *testing.T) {
 }
 
 func TestShowLimitAndFilter(t *testing.T) {
-	out, _, err := exec(t, "show", "-mode", "raw", "-filter", "kloza", sample)
+	out, _, err := exec(t, "show", "-mode", "raw", "-filter", "vandaele", sample)
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}

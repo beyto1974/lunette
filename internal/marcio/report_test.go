@@ -98,7 +98,7 @@ func TestAnalyzeEncodingGenuineMARC8(t *testing.T) {
 	// Replace two ASCII bytes of the first record with a MARC-8 escape
 	// sequence: ESC ( B selects the ASCII graphic set.
 	marc8 := append([]byte(nil), data...)
-	i := bytes.Index(marc8, []byte("De Block"))
+	i := bytes.Index(marc8, []byte("Neirinck"))
 	if i < 0 {
 		t.Fatal("fixture changed")
 	}
@@ -122,7 +122,7 @@ func TestAnalyzeEncodingGenuineMARC8(t *testing.T) {
 func TestAnalyzeEncodingInvalidUTF8(t *testing.T) {
 	data := fixture(t, "sample.mrc")
 	latin1 := append([]byte(nil), data...)
-	i := bytes.Index(latin1, []byte("Wim"))
+	i := bytes.Index(latin1, []byte("Ada"))
 	if i < 0 {
 		t.Fatal("fixture changed")
 	}

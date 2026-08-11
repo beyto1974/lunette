@@ -4,7 +4,7 @@ lunette · ../../testdata/sample.mrc · MARC21 · 3 records
 │  00001 Identification of Tran… 2002││  LDR    00209nab a2200085 a 4500                           │
 │▸ 00002 Gegevensbescherming en… 2018││▌ 001    rec-0002                                           │
 │  00003 Sans auteur 2020            ││  008    181019s2018    be |||||||  |||||||||dut            │
-│                                    ││  100 1# $a Kloza, Dariusz                                  │
+│                                    ││  100 1# $a Vandaele, Mira                                  │
 │                                    ││  245 10 $a Gegevensbescherming en café-cultuur             │
 │                                    ││  650 #0 $a Privacy                                         │
 │                                    ││                                                            │

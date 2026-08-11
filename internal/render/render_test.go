@@ -145,9 +145,9 @@ func TestWrapping(t *testing.T) {
 			// Wrapping must not lose or reorder text. The 856 URL is the
 			// longest single token in the fixture.
 			flat := strings.Join(strings.Fields(out), " ")
-			if !strings.Contains(flat, "https://biblio.vub.ac.be/vubir/rec-0001.html") &&
+			if !strings.Contains(flat, "https://example.org/collection/rec-0001.html") &&
 				!strings.Contains(strings.ReplaceAll(flat, " ", ""),
-					"https://biblio.vub.ac.be/vubir/rec-0001.html") {
+					"https://example.org/collection/rec-0001.html") {
 				t.Errorf("the 856 URL did not survive wrapping:\n%s", out)
 			}
 		})
@@ -214,7 +214,7 @@ func TestNoWrapByDefault(t *testing.T) {
 			t.Errorf("unwrapped output has a continuation line: %q", line)
 		}
 	}
-	if !strings.Contains(out, "$u https://biblio.vub.ac.be/vubir/rec-0001.html") {
+	if !strings.Contains(out, "$u https://example.org/collection/rec-0001.html") {
 		t.Error("the 856 URL should be on one line when wrapping is off")
 	}
 }

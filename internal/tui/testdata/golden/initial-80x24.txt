@@ -11,7 +11,7 @@ lunette · ../../testdata/sample.mrc · MARC21 · 3 records
 │                            ││  008    Fixed-Length Data Elements             │
 │                            ││         181023s2002    be |||||||  |||||||||eng│
 │                            ││  100 1# Main Entry - Personal Name             │
-│                            ││         $a De Block, Wim                       │
+│                            ││         $a Neirinck, Ada                       │
 │                            ││  245 10 Title Statement                        │
 │                            ││         $a Identification of Transmission Lines│
 │                            ││         $b from time-domain measurements       │

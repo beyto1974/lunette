@@ -122,8 +122,8 @@ func TestFilterScopes(t *testing.T) {
 		{"all:privacy", 1},
 		// "2002" is in the list key (year) but not in any subfield of record 1
 		// other than 260 $c, which the record scope does see.
-		{"kloza", 1},
-		{"rec:kloza", 1},
+		{"vandaele", 1},
+		{"rec:vandaele", 1},
 		{"tag:650 rec:privacy", 1},
 		{"tag:856 rec:privacy", 0},
 	}

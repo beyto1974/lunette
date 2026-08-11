@@ -88,7 +88,7 @@ func TestOpenURL(t *testing.T) {
 	if len(opened) != 1 {
 		t.Fatalf("opened %v, want one URL", opened)
 	}
-	if !strings.HasPrefix(opened[0], "https://biblio.vub.ac.be/vubir/") {
+	if !strings.HasPrefix(opened[0], "https://example.org/collection/") {
 		t.Errorf("opened %q, want the 856 $u", opened[0])
 	}
 	if !strings.Contains(m.status, "opening") {

@@ -4,8 +4,8 @@ import "testing"
 
 func TestScopeMatches(t *testing.T) {
 	const (
-		key  = "rec-0002 gegevensbescherming kloza, dariusz 2018"
-		full = "rec-0002 gegevensbescherming kloza, dariusz privacy"
+		key  = "rec-0002 gegevensbescherming vandaele, dariusz 2018"
+		full = "rec-0002 gegevensbescherming vandaele, dariusz privacy"
 	)
 
 	tests := []struct {
@@ -13,7 +13,7 @@ func TestScopeMatches(t *testing.T) {
 		query string
 		want  bool
 	}{
-		{ScopeTitles, "kloza", true},
+		{ScopeTitles, "vandaele", true},
 		{ScopeTitles, "privacy", false}, // only in the record body
 		{ScopeRecord, "privacy", true},
 		{ScopeRecord, "2018", false}, // only in the list key

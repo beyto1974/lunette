@@ -107,7 +107,7 @@ func TestAccessors(t *testing.T) {
 	if got, want := Title(first), "Identification of Transmission Lines"; !strings.HasPrefix(got, want) {
 		t.Errorf("Title = %q, want prefix %q", got, want)
 	}
-	if got, want := Author(first), "De Block, Wim"; got != want {
+	if got, want := Author(first), "Neirinck, Ada"; got != want {
 		t.Errorf("Author = %q, want %q", got, want)
 	}
 	if got, want := Year(first), "2002"; got != want {
@@ -122,7 +122,7 @@ func TestAccessors(t *testing.T) {
 	}
 
 	key := SearchKey(first)
-	for _, want := range []string{"rec-0001", "identification", "de block"} {
+	for _, want := range []string{"rec-0001", "identification", "neirinck"} {
 		if !strings.Contains(key, want) {
 			t.Errorf("SearchKey = %q, want it to contain %q", key, want)
 		}
@@ -145,7 +145,7 @@ func TestFullTextKey(t *testing.T) {
 		t.Fatal("fixture assumption broken: 650 $a Privacy is already in the search key")
 	}
 	key := FullTextKey(second)
-	for _, want := range []string{"privacy", "kloza", "café-cultuur", "rec-0002"} {
+	for _, want := range []string{"privacy", "vandaele", "café-cultuur", "rec-0002"} {
 		if !strings.Contains(key, want) {
 			t.Errorf("FullTextKey = %q, want it to contain %q", key, want)
 		}

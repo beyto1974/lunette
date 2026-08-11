@@ -70,7 +70,7 @@ func TestDetailFollowsSelection(t *testing.T) {
 	m.list.Select(1)
 	m.refreshDetail()
 	content := m.vp.GetContent()
-	if !strings.Contains(content, "Kloza") {
+	if !strings.Contains(content, "Vandaele") {
 		t.Errorf("detail pane did not follow the cursor:\n%s", content)
 	}
 	if !strings.Contains(content, "Title Statement") {
@@ -103,7 +103,7 @@ func TestFilterNarrowsList(t *testing.T) {
 		{"tag:856", 1},
 		{"tag:245", 3},
 		{"tag:856 transmission", 1},
-		{"tag:856 kloza", 0},
+		{"tag:856 vandaele", 0},
 		{"zzzz", 0},
 		// "privacy" lives in a 650, which the list key does not cover.
 		{"privacy", 0},
@@ -426,7 +426,7 @@ func TestDetailWrapsToPaneWidth(t *testing.T) {
 	// rather than truncated away.
 	flat := strings.ReplaceAll(stripANSI(content), "\n", "")
 	flat = strings.ReplaceAll(flat, " ", "")
-	if !strings.Contains(flat, "https://biblio.vub.ac.be/vubir/rec-0001.html") {
+	if !strings.Contains(flat, "https://example.org/collection/rec-0001.html") {
 		t.Errorf("the 856 URL was lost:\n%s", stripANSI(content))
 	}
 }
