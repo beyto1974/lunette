@@ -25,6 +25,28 @@ make build       # ./lunette
 
 Run a single package: `go test ./internal/render/ -run TestAnnotated -v`.
 
+## Commits
+
+**No `Claude-Session:` trailers.** This history is public and a session link
+means nothing to anyone but the person who made it. `.claude/settings.json`
+sets `attribution.sessionUrl: false` to stop them being written; if one appears
+anyway — a stale session that started before that file existed — strip it
+before pushing. `Co-Authored-By:` stays.
+
+**Conventional prefixes**: `feat:`, `fix:`, `test:`, `docs:`, `build:`,
+`refactor:`. `.goreleaser.yaml` groups the changelog by them and drops `test:`,
+`chore:` and `docs:`, so the prefix decides whether a commit reaches the
+release notes.
+
+The 38 commits made before that setting existed were cleaned in one pass, which
+is why every hash changed. Only safe before the first push:
+
+```bash
+git filter-branch -f --msg-filter 'sed "/^Claude-Session:/d"' -- --all
+git update-ref -d refs/original/refs/heads/main
+git reflog expire --expire=now --all && git gc --prune=now
+```
+
 ## House rules
 
 **Tests first.** Every package here was built test-first and the suite is the
