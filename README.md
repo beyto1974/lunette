@@ -75,6 +75,7 @@ marcview show -mode compact -n 5 records.mrc           # print records
 marcview show -filter brussels -tag 856 records.mrc    # same criteria as the TUI
 marcview show -all -filter privacy records.mrc         # search every subfield
 marcview show -width 80 records.mrc                    # wrap long fields at 80 columns
+marcview show -mode json -indent records.mrc           # pretty-print json or xml
 marcview export -format xml records.mrc > out.marcxml  # mrc | xml | json
 marcview export -format mrc -tag 856 -o links.mrc records.mrc
 ```
@@ -97,15 +98,17 @@ Five ways to look at a record, switched live:
   `245 10 $a Title $b subtitle`. Keeps the labels off and most records on one
   screen; the form to reach for when comparing records or grepping output.
 - **Raw** — pymarc breaker form, `=245  10$aTitle`.
-- **JSON** — MARC-in-JSON.
-- **XML** — MARCXML.
+- **JSON** — MARC-in-JSON, indented in the browser (`-indent` on the command
+  line; export stays compact).
+- **XML** — MARCXML, likewise.
 
 MARC is highlighted natively: tags, indicators, subfield codes, field labels
 and the leader each get their own colour. With a filter active the matched term
 is highlighted in both panes — in the record and in the list titles — and `n`
 and `N` step between matches inside the record, with the position shown in the
-pane header. JSON and XML are highlighted with
-[chroma](https://github.com/alecthomas/chroma). Colours are ANSI-256 indices,
+pane header — including in the JSON and XML views, where the match is marked by
+inverting the cell so that chroma's syntax colour underneath survives. JSON and
+XML are highlighted with [chroma](https://github.com/alecthomas/chroma). Colours are ANSI-256 indices,
 so they follow the terminal theme rather than fighting it.
 
 ## Two things it handles that trip up other readers

@@ -251,6 +251,9 @@ func (m *Model) renderOptions(color bool) render.Options {
 		Color: color,
 		Match: m.filter.query,
 		Width: m.vp.Width(),
+		// A record on one line is unreadable in a pane, so the structured
+		// views are always indented here. Export leaves them as they are.
+		Indent: true,
 	}
 }
 

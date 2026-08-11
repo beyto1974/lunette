@@ -141,6 +141,24 @@ func TestShowWidth(t *testing.T) {
 	}
 }
 
+func TestShowIndent(t *testing.T) {
+	flat, _, err := exec(t, "show", "-mode", "json", "-n", "1", sample)
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	pretty, _, err := exec(t, "show", "-mode", "json", "-indent", "-n", "1", sample)
+	if err != nil {
+		t.Fatalf("show -indent: %v", err)
+	}
+	if strings.Count(pretty, "\n") <= strings.Count(flat, "\n") {
+		t.Error("-indent did not add line breaks")
+	}
+	var v any
+	if err := json.Unmarshal([]byte(pretty), &v); err != nil {
+		t.Fatalf("indented output is not valid JSON: %v", err)
+	}
+}
+
 func TestShowRejectsUnknownMode(t *testing.T) {
 	if _, _, err := exec(t, "show", "-mode", "yaml", sample); err == nil {
 		t.Error("show accepted an unknown mode")

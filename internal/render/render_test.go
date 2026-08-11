@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -244,6 +245,123 @@ func TestXMLIsValid(t *testing.T) {
 	out := render(t, recs[0], XML, Options{})
 	if err := xml.Unmarshal([]byte(out), new(any)); err != nil {
 		t.Fatalf("XML mode produced invalid XML: %v\n---\n%s", err, out)
+	}
+}
+
+// The structured views are one long line as the library emits them, which is
+// unreadable in a pane; Indent makes them navigable.
+func TestIndentJSON(t *testing.T) {
+	recs := load(t)
+
+	flat := render(t, recs[0], JSON, Options{})
+	if strings.Contains(flat, "\n") {
+		t.Error("JSON should be a single line without Indent")
+	}
+
+	pretty := render(t, recs[0], JSON, Options{Indent: true})
+	if !strings.Contains(pretty, "\n") {
+		t.Fatalf("Indent produced no line breaks:\n%s", pretty)
+	}
+	var a, b any
+	if err := json.Unmarshal([]byte(pretty), &a); err != nil {
+		t.Fatalf("indented JSON is invalid: %v", err)
+	}
+	if err := json.Unmarshal([]byte(flat), &b); err != nil {
+		t.Fatalf("flat JSON is invalid: %v", err)
+	}
+	if !reflect.DeepEqual(a, b) {
+		t.Error("indenting changed the JSON structure")
+	}
+}
+
+func TestIndentXML(t *testing.T) {
+	recs := load(t)
+
+	flat := render(t, recs[0], XML, Options{})
+	pretty := render(t, recs[0], XML, Options{Indent: true})
+
+	if strings.Count(pretty, "\n") < 5 {
+		t.Fatalf("Indent produced too few line breaks:\n%s", pretty)
+	}
+	if err := xml.Unmarshal([]byte(pretty), new(any)); err != nil {
+		t.Fatalf("indented XML is invalid: %v", err)
+	}
+	for _, want := range []string{"rec-0001", "Identification of Transmission Lines", "856"} {
+		if !strings.Contains(pretty, want) {
+			t.Errorf("indented XML lost %q", want)
+		}
+	}
+	if strings.Count(flat, "\n") >= strings.Count(pretty, "\n") {
+		t.Error("flat XML should have fewer lines than indented XML")
+	}
+}
+
+// MARC fixed fields are position-significant: 008 is padded to 40 characters
+// and its trailing spaces carry meaning, so indenting must not trim them.
+func TestIndentXMLPreservesFixedFields(t *testing.T) {
+	recs := load(t)
+	pretty := render(t, recs[0], XML, Options{Indent: true})
+
+	back, err := marcio.Load(strings.NewReader(pretty))
+	if err != nil {
+		t.Fatalf("indented XML does not load: %v", err)
+	}
+	if len(back.Records) != 1 {
+		t.Fatalf("loaded %d records, want 1", len(back.Records))
+	}
+
+	original, reloaded := recs[0].Get("008"), back.Records[0].Get("008")
+	if original == nil || reloaded == nil {
+		t.Fatal("008 missing")
+	}
+	if reloaded.Data != original.Data {
+		t.Errorf("008 changed through indenting:\n got %q\nwant %q", reloaded.Data, original.Data)
+	}
+}
+
+// The namespace belongs on the collection element, not on every element in it.
+func TestIndentXMLNamespace(t *testing.T) {
+	recs := load(t)
+	pretty := render(t, recs[0], XML, Options{Indent: true})
+
+	if n := strings.Count(pretty, "xmlns="); n != 1 {
+		t.Errorf("found %d xmlns declarations, want 1:\n%s", n, pretty)
+	}
+	if !strings.Contains(pretty, `<collection xmlns="http://www.loc.gov/MARC21/slim">`) {
+		t.Errorf("collection element is not declared as MARCXML:\n%s", pretty)
+	}
+}
+
+// Chroma colours JSON and XML with its own palette, so the match is marked by
+// inverting the cell rather than by setting a colour that would fight it.
+func TestMatchHighlightInStructuredViews(t *testing.T) {
+	recs := load(t)
+
+	for _, mode := range []Mode{JSON, XML} {
+		t.Run(mode.String(), func(t *testing.T) {
+			plain := render(t, recs[0], mode, Options{Color: true, Indent: true})
+			marked := render(t, recs[0], mode, Options{Color: true, Indent: true, Match: "transmission"})
+
+			if marked == plain {
+				t.Fatal("Match had no effect")
+			}
+			if !strings.Contains(marked, "\x1b[7m") || !strings.Contains(marked, "\x1b[27m") {
+				t.Error("want the match wrapped in reverse video (SGR 7/27)")
+			}
+			// Inverting must not disturb the text or chroma's own colours.
+			if stripANSI(marked) != stripANSI(plain) {
+				t.Errorf("highlighting changed the text:\n%s", stripANSI(marked))
+			}
+		})
+	}
+}
+
+// Highlighting is case-insensitive and works on uncoloured output too.
+func TestMatchHighlightPlainStructured(t *testing.T) {
+	recs := load(t)
+	out := render(t, recs[0], JSON, Options{Match: "TRANSMISSION"})
+	if strings.Contains(out, "\x1b[") {
+		t.Error("plain output must stay free of escapes even with a match")
 	}
 }
 

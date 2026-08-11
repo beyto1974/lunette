@@ -14,11 +14,6 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 - [ ] Check `Record.GetLinkedFields` behaviour on records with repeated `$6`
       occurrence numbers; the 880 pairing assumes it returns only true partners.
 
-## Views
-
-- [ ] Highlight matches in the JSON and XML views too; chroma output is
-      styled independently of `palette`, so the match style is lost there.
-
 ## Testing
 
 - [ ] Golden-file tests for the annotated renderer, so layout changes are

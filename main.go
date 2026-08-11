@@ -64,6 +64,7 @@ show flags:
   -all                                   match -filter against every subfield
   -tag NNN                               keep records carrying field NNN
   -width N                               wrap long fields at N columns
+  -indent                                pretty-print the json and xml modes
   -color                                 force ANSI colour when not a terminal
 
 export flags:
@@ -95,6 +96,7 @@ func runShow(args []string, stdout io.Writer) error {
 	tag := fs.String("tag", "", "keep records carrying this field")
 	all := fs.Bool("all", false, "match -filter against every subfield, not just title/author/id")
 	width := fs.Int("width", 0, "wrap long fields at this many columns (0 = no wrapping)")
+	indent := fs.Bool("indent", false, "pretty-print the json and xml modes")
 	color := fs.Bool("color", false, "force ANSI colour")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -120,7 +122,7 @@ func runShow(args []string, stdout io.Writer) error {
 	out := bufio.NewWriter(stdout)
 	defer out.Flush()
 	for i, rec := range recs {
-		s, err := render.Render(rec, m, render.Options{Color: *color, Width: *width})
+		s, err := render.Render(rec, m, render.Options{Color: *color, Width: *width, Indent: *indent})
 		if err != nil {
 			return err
 		}

@@ -66,6 +66,10 @@ type Options struct {
 	// ChromaStyle names the chroma style for JSON and XML. Defaults to a
 	// style that reads acceptably on both light and dark terminals.
 	ChromaStyle string
+	// Indent pretty-prints the JSON and XML views, which the library emits as
+	// a single line. It does not affect export, whose output is meant for
+	// other programs.
+	Indent bool
 	// Width wraps the annotated and compact views at this many cells,
 	// indenting continuation lines under the value they belong to. Zero
 	// leaves lines unwrapped, which is what piped output wants.
@@ -91,13 +95,19 @@ func Render(rec *marc.Record, mode Mode, o Options) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return maybeHighlight(s, "json", o), nil
+		if o.Indent {
+			s = indentJSON(s)
+		}
+		return structured(s, "json", o), nil
 	case XML:
 		s, err := recordXML(rec)
 		if err != nil {
 			return "", err
 		}
-		return maybeHighlight(s, "xml", o), nil
+		if o.Indent {
+			s = indentXML(s)
+		}
+		return structured(s, "xml", o), nil
 	default:
 		return "", fmt.Errorf("unknown render mode %d", mode)
 	}
@@ -121,11 +131,18 @@ func recordXML(rec *marc.Record) (string, error) {
 	return buf.String(), nil
 }
 
-// maybeHighlight runs source through chroma when colour is on.
-func maybeHighlight(source, lexer string, o Options) string {
+// structured syntax-highlights JSON or XML and marks the search term in it.
+// Both steps are colour-only: plain output must stay free of escapes so that
+// piping it stays useful.
+func structured(source, lexer string, o Options) string {
 	if !o.Color {
 		return source
 	}
+	return highlightMatches(chromaHighlight(source, lexer, o), o.Match)
+}
+
+// chromaHighlight runs source through chroma.
+func chromaHighlight(source, lexer string, o Options) string {
 	style := o.ChromaStyle
 	if style == "" {
 		style = defaultChromaStyle
