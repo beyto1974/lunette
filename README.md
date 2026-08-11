@@ -12,7 +12,8 @@ go install github.com/beyto1974/lunette@latest    # needs Go 1.25.8 or newer
 ```
 
 Or download a binary for linux or macOS, amd64 or arm64, from the
-[releases](https://github.com/beyto1974/lunette/releases). Or build it:
+[releases](https://github.com/beyto1974/lunette/releases) — check it against
+the `checksums.txt` published alongside. Or build it:
 
 ```bash
 git clone https://github.com/beyto1974/lunette && cd lunette && make build
@@ -83,7 +84,11 @@ Longer explanations are in [docs/notes.md](docs/notes.md); planned work is in
 make test          # also: race, cover, lint
 make golden        # rewrite the TUI frame snapshots after a layout change
 make screenshots   # regenerate the images above
+make snapshot      # build the release archives without publishing
 ```
+
+Releases are cut by pushing a tag: GoReleaser builds the four binaries, stamps
+the version into `lunette version`, and publishes archives and checksums.
 
 Built on [gomarc](https://github.com/beyto1974/gomarc) and the
 [Charm](https://charm.sh) stack.

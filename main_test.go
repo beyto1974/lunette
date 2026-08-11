@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -339,6 +340,33 @@ func TestArgumentErrors(t *testing.T) {
 	// An unknown first argument is treated as a file to open in the browser.
 	if _, _, err := exec(t, "does-not-exist.mrc"); err == nil {
 		t.Error("opening a missing file should be an error")
+	}
+}
+
+// A released binary has to be able to say what it is: a bug report that names
+// a version is worth several that do not.
+func TestVersion(t *testing.T) {
+	out, _, err := exec(t, "version")
+	if err != nil {
+		t.Fatalf("version: %v", err)
+	}
+	if !strings.HasPrefix(out, "lunette ") {
+		t.Errorf("version output = %q, want it to start with the program name", out)
+	}
+	// Unstamped builds say "dev"; a release stamps the tag in.
+	if !strings.Contains(out, version) {
+		t.Errorf("version output = %q, want it to contain %q", out, version)
+	}
+	if !strings.Contains(out, runtime.Version()) {
+		t.Errorf("version output = %q, want the Go version too", out)
+	}
+}
+
+// The stamp is set with -ldflags at build time, so the variables have to be
+// package-level strings in main.
+func TestVersionDefaults(t *testing.T) {
+	if version == "" {
+		t.Error("version is empty; -ldflags has nothing to overwrite")
 	}
 }
 

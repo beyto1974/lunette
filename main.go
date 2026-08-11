@@ -10,11 +10,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/beyto1974/lunette/internal/export"
 	"github.com/beyto1974/lunette/internal/marcio"
 	"github.com/beyto1974/lunette/internal/render"
 	"github.com/beyto1974/lunette/internal/tui"
+)
+
+// Stamped at build time with -ldflags; see .goreleaser.yaml. A build straight
+// from source says "dev", which is honest.
+var (
+	version = "dev"
+	commit  = ""
+	date    = ""
 )
 
 func main() {
@@ -41,12 +50,27 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runEncoding(args[1:], stdout)
 	case "show":
 		return runShow(args[1:], stdout)
+	case "version", "-version", "--version":
+		fmt.Fprintln(stdout, versionLine())
+		return nil
 	case "help", "-h", "--help":
 		usage(stdout)
 		return nil
 	default:
 		return runView(args)
 	}
+}
+
+// versionLine names the build precisely enough to reproduce it.
+func versionLine() string {
+	line := "lunette " + version
+	if commit != "" {
+		line += " (" + commit + ")"
+	}
+	if date != "" {
+		line += " built " + date
+	}
+	return line + ", " + runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH
 }
 
 func usage(w io.Writer) {

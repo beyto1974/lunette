@@ -1,0 +1,69 @@
+version: 2
+
+# Releases are cut by pushing a tag; see .github/workflows/release.yml.
+# Try it without publishing anything:  goreleaser release --snapshot --clean
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: lunette
+    main: .
+    binary: lunette
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    # -s -w drop the symbol table and DWARF: a browser does not need them, and
+    # they are most of the binary. The rest is what `lunette version` prints.
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .ShortCommit }}
+      - -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}" # reproducible builds
+
+archives:
+  - id: lunette
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - docs/notes.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  # The tests, the golden frames and the screenshots are not news to anyone
+  # downloading a binary.
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore:"
+      - "^docs:"
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Everything else
+      order: 2
+
+release:
+  footer: |
+    ## Install
+
+    Download the archive for your platform below, or:
+
+        go install github.com/beyto1974/lunette@latest
+
+    Verify what you downloaded against `checksums.txt`.

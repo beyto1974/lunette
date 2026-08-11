@@ -1,4 +1,4 @@
-.PHONY: help build install test race cover badge golden screenshots lint vuln fmt clean
+.PHONY: help build install test race cover badge golden screenshots lint vuln release-check snapshot fmt clean
 
 BADGE   := docs/coverage.svg
 PROFILE := coverage.out
@@ -36,6 +36,13 @@ lint: ## Vet and check formatting
 	go vet ./...
 	@test -z "$$(gofmt -l .)" || { echo "unformatted files:"; gofmt -l .; exit 1; }
 
+release-check: ## Validate the release configuration
+	goreleaser check
+
+snapshot: ## Build the release archives locally, publishing nothing
+	goreleaser release --snapshot --clean --skip=publish,validate
+	@ls -1 dist/*.tar.gz dist/checksums.txt
+
 vuln: ## Report known vulnerabilities that this code can actually reach
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
@@ -43,4 +50,4 @@ fmt: ## Format the Go sources
 	gofmt -w .
 
 clean: ## Remove build and coverage artefacts
-	rm -f lunette lunette-*-* $(PROFILE)
+	rm -rf lunette lunette-*-* $(PROFILE) dist

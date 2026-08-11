@@ -31,8 +31,9 @@ Near-term, actionable items for lunette. Larger feature proposals live in
 
 ## Packaging
 
-- [ ] Tag a release and add a `goreleaser` config; CI builds the four
-      OS/arch binaries but nothing publishes them.
+- [ ] Cut the first release: `git tag -a v0.1.0 -m "..." && git push origin v0.1.0`.
+      The workflow and the GoReleaser config are in place and tested with
+      `make snapshot`; nothing has been tagged yet.
 - [ ] Push to `github.com/beyto1974/lunette` so the module path resolves; it
       is set but the remote does not exist yet.
 - [ ] Consider vendoring or pinning `gomarc`; it is pre-1.0 (v0.2.0) and its
