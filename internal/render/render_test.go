@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	marc "github.com/beyto1974/gomarc"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/beyto1974/marcview/internal/marcio"
 )
@@ -122,6 +123,110 @@ func TestCompact(t *testing.T) {
 	// One line per field, plus the leader.
 	if got, want := len(strings.Split(out, "\n")), len(recs[0].Fields)+1; got != want {
 		t.Errorf("compact used %d lines for %d fields, want %d", got, len(recs[0].Fields), want)
+	}
+}
+
+// Long values wrap under an indent rather than running past the pane edge.
+func TestWrapping(t *testing.T) {
+	recs := load(t)
+	const width = 40
+
+	for _, mode := range []Mode{Annotated, Compact} {
+		t.Run(mode.String(), func(t *testing.T) {
+			out := render(t, recs[0], mode, Options{Width: width})
+
+			for i, line := range strings.Split(out, "\n") {
+				if w := ansi.StringWidth(line); w > width {
+					t.Errorf("line %d is %d cells wide, want at most %d: %q", i, w, width, line)
+				}
+			}
+
+			// Wrapping must not lose or reorder text. The 856 URL is the
+			// longest single token in the fixture.
+			flat := strings.Join(strings.Fields(out), " ")
+			if !strings.Contains(flat, "https://biblio.vub.ac.be/vubir/rec-0001.html") &&
+				!strings.Contains(strings.ReplaceAll(flat, " ", ""),
+					"https://biblio.vub.ac.be/vubir/rec-0001.html") {
+				t.Errorf("the 856 URL did not survive wrapping:\n%s", out)
+			}
+		})
+	}
+}
+
+// Continuation lines line up under the value they belong to, so the tag column
+// stays readable.
+func TestWrapIndentsContinuations(t *testing.T) {
+	recs := load(t)
+	out := render(t, recs[0], Compact, Options{Width: 40})
+
+	var continuations int
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "       ") && strings.TrimSpace(line) != "" {
+			continuations++
+		}
+	}
+	if continuations == 0 {
+		t.Errorf("nothing wrapped at width 40:\n%s", out)
+	}
+}
+
+// A continuation must line up under the text it continues, which for a control
+// field is column 7, not the column a subfield value would start at.
+func TestControlFieldWrapAlignment(t *testing.T) {
+	recs := load(t)
+	lines := strings.Split(render(t, recs[0], Annotated, Options{Width: 40}), "\n")
+
+	found := false
+	for i, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "181023") {
+			continue
+		}
+		found = true
+		if got := indentOf(line); got != 7 {
+			t.Errorf("008 value starts at column %d, want 7", got)
+		}
+		for _, cont := range lines[i+1:] {
+			if !strings.HasPrefix(cont, " ") {
+				break
+			}
+			if got := indentOf(cont); got != 7 {
+				t.Errorf("008 continuation is indented %d, want 7: %q", got, cont)
+			}
+		}
+		break
+	}
+	if !found {
+		t.Fatalf("008 field not found in:\n%s", strings.Join(lines, "\n"))
+	}
+}
+
+func indentOf(s string) int {
+	return len(s) - len(strings.TrimLeft(s, " "))
+}
+
+// Width 0 means no wrapping, which is what piped output wants.
+func TestNoWrapByDefault(t *testing.T) {
+	recs := load(t)
+	out := render(t, recs[0], Compact, Options{})
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "       ") {
+			t.Errorf("unwrapped output has a continuation line: %q", line)
+		}
+	}
+	if !strings.Contains(out, "$u https://biblio.vub.ac.be/vubir/rec-0001.html") {
+		t.Error("the 856 URL should be on one line when wrapping is off")
+	}
+}
+
+// Wrapping measures printable width, so colour must not shorten the lines.
+func TestWrappingWithColor(t *testing.T) {
+	recs := load(t)
+	const width = 48
+	out := render(t, recs[0], Annotated, Options{Width: width, Color: true, Match: "transmission"})
+	for i, line := range strings.Split(out, "\n") {
+		if w := ansi.StringWidth(line); w > width {
+			t.Errorf("coloured line %d is %d cells wide, want at most %d", i, w, width)
+		}
 	}
 }
 

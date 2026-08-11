@@ -129,6 +129,18 @@ func TestExportFullTextFilter(t *testing.T) {
 	}
 }
 
+func TestShowWidth(t *testing.T) {
+	out, _, err := exec(t, "show", "-mode", "compact", "-width", "40", "-n", "1", sample)
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	for i, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
+		if len(line) > 40 {
+			t.Errorf("line %d is %d columns wide, want at most 40: %q", i, len(line), line)
+		}
+	}
+}
+
 func TestShowRejectsUnknownMode(t *testing.T) {
 	if _, _, err := exec(t, "show", "-mode", "yaml", sample); err == nil {
 		t.Error("show accepted an unknown mode")

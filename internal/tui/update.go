@@ -168,6 +168,8 @@ func (m *Model) copyCurrent() tea.Cmd {
 	if !ok {
 		return nil
 	}
+	// Copy unwrapped: the pane width is a display choice, not part of the
+	// record.
 	out, err := render.Render(rec, m.mode, render.Options{})
 	if err != nil {
 		m.status = "copy failed: " + err.Error()

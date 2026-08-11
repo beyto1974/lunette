@@ -62,6 +62,11 @@ marcview records.marcxml    # the format is sniffed from the first bytes
 Records stream in as they load, so a large file is browsable immediately.
 Below about 58 columns the browser shows one pane at a time, following focus.
 
+Long values wrap to the pane width, with continuation lines indented under the
+value rather than under the tag, so the tag column stays scannable. Over-long
+tokens such as 856 URLs are broken rather than left to overflow. Piped output
+is unwrapped unless you pass `-width`.
+
 ## Command line
 
 ```bash
@@ -69,6 +74,7 @@ marcview validate records.mrc                          # counts, failures, exit 
 marcview show -mode compact -n 5 records.mrc           # print records
 marcview show -filter brussels -tag 856 records.mrc    # same criteria as the TUI
 marcview show -all -filter privacy records.mrc         # search every subfield
+marcview show -width 80 records.mrc                    # wrap long fields at 80 columns
 marcview export -format xml records.mrc > out.marcxml  # mrc | xml | json
 marcview export -format mrc -tag 856 -o links.mrc records.mrc
 ```

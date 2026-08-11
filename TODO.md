@@ -16,8 +16,6 @@ Near-term, actionable items for marcview. Larger feature proposals live in
 
 ## Views
 
-- [ ] Wrap long fields under an indent in the compact and annotated views;
-      they are currently cut at the pane edge.
 - [ ] Highlight matches in the JSON and XML views too; chroma output is
       styled independently of `palette`, so the match style is lost there.
 

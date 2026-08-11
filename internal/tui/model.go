@@ -234,13 +234,24 @@ func (m *Model) refreshDetail() {
 		m.vp.SetContent("")
 		return
 	}
-	out, err := render.Render(rec, m.mode, render.Options{Color: true, Match: m.filter.query})
+	out, err := render.Render(rec, m.mode, m.renderOptions(true))
 	if err != nil {
 		out = "render error: " + err.Error()
 	}
 	m.vp.SetContent(out)
 	m.vp.SetYOffset(0)
 	m.findMatches(rec)
+}
+
+// renderOptions describes the current view. The coloured and plain renderings
+// must agree on width, or the line numbers findMatches computes would not line
+// up with what the viewport shows.
+func (m *Model) renderOptions(color bool) render.Options {
+	return render.Options{
+		Color: color,
+		Match: m.filter.query,
+		Width: m.vp.Width(),
+	}
 }
 
 // findMatches records which lines of the current rendering hold a match, so
@@ -251,7 +262,7 @@ func (m *Model) findMatches(rec *marc.Record) {
 	if m.filter.query == "" {
 		return
 	}
-	plain, err := render.Render(rec, m.mode, render.Options{})
+	plain, err := render.Render(rec, m.mode, m.renderOptions(false))
 	if err != nil {
 		return
 	}

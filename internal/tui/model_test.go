@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/beyto1974/marcview/internal/render"
 )
@@ -286,4 +287,27 @@ func stripANSI(s string) string {
 		i++
 	}
 	return b.String()
+}
+
+// The record pane wraps to its own width, so a long 856 URL stays readable
+// instead of being cut at the border.
+func TestDetailWrapsToPaneWidth(t *testing.T) {
+	m := newLoaded(t)
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.setMode(render.Compact)
+
+	content := m.vp.GetContent()
+	for i, line := range strings.Split(content, "\n") {
+		if w := ansi.StringWidth(line); w > m.vp.Width() {
+			t.Errorf("line %d is %d cells wide, pane is %d: %q", i, w, m.vp.Width(), line)
+		}
+	}
+
+	// The URL is longer than the pane, so it must appear broken across lines
+	// rather than truncated away.
+	flat := strings.ReplaceAll(stripANSI(content), "\n", "")
+	flat = strings.ReplaceAll(flat, " ", "")
+	if !strings.Contains(flat, "https://biblio.vub.ac.be/vubir/rec-0001.html") {
+		t.Errorf("the 856 URL was lost:\n%s", stripANSI(content))
+	}
 }

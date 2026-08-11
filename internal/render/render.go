@@ -11,6 +11,7 @@ import (
 
 	"github.com/alecthomas/chroma/v2/quick"
 	marc "github.com/beyto1974/gomarc"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Mode is one of the four ways a record can be shown.
@@ -65,6 +66,10 @@ type Options struct {
 	// ChromaStyle names the chroma style for JSON and XML. Defaults to a
 	// style that reads acceptably on both light and dark terminals.
 	ChromaStyle string
+	// Width wraps the annotated and compact views at this many cells,
+	// indenting continuation lines under the value they belong to. Zero
+	// leaves lines unwrapped, which is what piped output wants.
+	Width int
 }
 
 const defaultChromaStyle = "nord"
@@ -169,24 +174,25 @@ func compact(rec *marc.Record, o Options) string {
 
 	var b strings.Builder
 	if rec.Leader != nil {
-		fmt.Fprintf(&b, "%s    %s\n", p.tag.Render("LDR"), p.leader.Render(rec.Leader.String()))
+		writeWrapped(&b, p.tag.Render("LDR")+"    ", p.leader.Render(rec.Leader.String()), tagIndent, o.Width)
 	}
 
 	for _, f := range rec.Fields {
 		if f.IsControlField() {
-			fmt.Fprintf(&b, "%s    %s\n", p.tag.Render(f.Tag), p.value(f.Data, o.Match))
+			writeWrapped(&b, p.tag.Render(f.Tag)+"    ", p.value(f.Data, o.Match), tagIndent, o.Width)
 			continue
 		}
 
-		fmt.Fprintf(&b, "%s %s%s",
+		prefix := fmt.Sprintf("%s %s%s ",
 			p.tag.Render(f.Tag),
 			p.ind.Render(indicator(f.Indicator1())),
 			p.ind.Render(indicator(f.Indicator2())),
 		)
+		parts := make([]string, 0, len(f.Subfields))
 		for _, sf := range f.Subfields {
-			fmt.Fprintf(&b, " %s %s", p.code.Render("$"+sf.Code), p.value(sf.Value, o.Match))
+			parts = append(parts, p.code.Render("$"+sf.Code)+" "+p.value(sf.Value, o.Match))
 		}
-		b.WriteByte('\n')
+		writeWrapped(&b, prefix, strings.Join(parts, " "), tagIndent, o.Width)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -200,7 +206,7 @@ func annotated(rec *marc.Record, o Options) string {
 	}
 
 	var b strings.Builder
-	writeLeader(&b, rec, p)
+	writeLeader(&b, rec, p, o.Width)
 
 	// 880 fields carry the vernacular form of another field. Render each one
 	// under its partner instead of stranding them all at the end.
@@ -220,56 +226,98 @@ func annotated(rec *marc.Record, o Options) string {
 		if f.Tag == "880" && linked[f] {
 			continue // rendered next to its partner below
 		}
-		writeField(&b, f, p, o.Match, false)
+		writeField(&b, f, p, o, false)
 		if partners, err := rec.GetLinkedFields(f); err == nil {
 			for _, l := range partners {
-				writeField(&b, l, p, o.Match, true)
+				writeField(&b, l, p, o, true)
 			}
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func writeLeader(b *strings.Builder, rec *marc.Record, p palette) {
+func writeLeader(b *strings.Builder, rec *marc.Record, p palette, width int) {
 	if rec.Leader == nil {
 		return
 	}
 	l := rec.Leader
-	fmt.Fprintf(b, "%s %s\n", p.label.Render("LEADER"), p.leader.Render(l.String()))
-	fmt.Fprintf(b, "       %s\n\n", p.dim.Render(fmt.Sprintf(
+	writeWrapped(b, p.label.Render("LEADER")+" ", p.leader.Render(l.String()), tagIndent, width)
+	writeWrapped(b, "       ", p.dim.Render(fmt.Sprintf(
 		"status=%s  type=%s  biblevel=%s  encoding=%s  desc=%s",
 		describe(l.RecordStatus(), recordStatus),
 		describe(l.TypeOfRecord(), recordType),
 		describe(l.BibliographicLevel(), bibLevel),
 		describe(l.EncodingLevel(), encodingLevel),
 		describe(l.CatalogingForm(), catalogingForm),
-	)))
+	)), tagIndent, width)
+	b.WriteByte('\n')
 }
 
+// Continuation indents: under the label, past "245 10 ", and under a subfield
+// value, past "       $a ".
+const (
+	tagIndent      = 7
+	subfieldIndent = 10
+)
+
 // writeField renders one field: header line, then subfields indented under it.
-func writeField(b *strings.Builder, f *marc.Field, p palette, match string, vernacular bool) {
+
+func writeField(b *strings.Builder, f *marc.Field, p palette, o Options, vernacular bool) {
 	name := TagName(f.Tag)
 	if vernacular && name != "" {
 		name += " (vernacular)"
 	}
 
 	if f.IsControlField() {
-		fmt.Fprintf(b, "%s    %s\n", p.tag.Render(f.Tag), p.label.Render(name))
-		fmt.Fprintf(b, "       %s\n", p.value(f.Data, match))
+		writeWrapped(b, p.tag.Render(f.Tag)+"    ", p.label.Render(name), tagIndent, o.Width)
+		// A control field's data sits at column 7, so its continuations do too.
+		writeWrapped(b, "       ", p.value(f.Data, o.Match), tagIndent, o.Width)
 		return
 	}
 
-	fmt.Fprintf(b, "%s %s%s %s\n",
+	writeWrapped(b, fmt.Sprintf("%s %s%s ",
 		p.tag.Render(f.Tag),
 		p.ind.Render(indicator(f.Indicator1())),
 		p.ind.Render(indicator(f.Indicator2())),
-		p.label.Render(name),
-	)
+	), p.label.Render(name), tagIndent, o.Width)
 	for _, sf := range f.Subfields {
-		fmt.Fprintf(b, "       %s %s\n",
-			p.code.Render("$"+sf.Code),
-			p.value(sf.Value, match),
-		)
+		writeWrapped(b,
+			"       "+p.code.Render("$"+sf.Code)+" ",
+			p.value(sf.Value, o.Match),
+			subfieldIndent, o.Width)
+	}
+}
+
+// writeWrapped writes prefix followed by body, wrapping at width and indenting
+// every continuation line by indent cells so it sits under the value rather
+// than under the tag. Width 0 disables wrapping. Measurement is ANSI-aware, so
+// styled text wraps at the same column as plain text - which also keeps the
+// line numbers the match navigator computes from the plain rendering valid.
+func writeWrapped(b *strings.Builder, prefix, body string, indent, width int) {
+	if width <= 0 || ansi.StringWidth(prefix)+ansi.StringWidth(body) <= width {
+		b.WriteString(prefix)
+		b.WriteString(body)
+		b.WriteByte('\n')
+		return
+	}
+
+	limit := width - indent
+	if limit < 8 {
+		// Too narrow to indent usefully; wrap against the full width instead.
+		limit, indent = width, 0
+	}
+
+	// ansi.Wrap breaks over-long words, which matters for URLs in 856 $u.
+	wrapped := ansi.Wrap(body, limit, "")
+	pad := strings.Repeat(" ", indent)
+	for i, line := range strings.Split(wrapped, "\n") {
+		if i == 0 {
+			b.WriteString(prefix)
+		} else {
+			b.WriteString(pad)
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
 	}
 }
 

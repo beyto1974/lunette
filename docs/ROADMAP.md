@@ -50,8 +50,8 @@ rather than being cut off.
 
 </details>
 
-Still open from that entry: the width-aware fold. Long fields are cut at the
-pane edge rather than wrapped under an indent.
+The width-aware fold from that entry is done too: values wrap to the pane
+width, continuations indent under the value, and over-long tokens are broken.
 
 ### ~~1.3 Search highlighting across both panes~~ — done
 
