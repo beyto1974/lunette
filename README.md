@@ -45,8 +45,6 @@ lunette -follow harvest.mrc     # keep reading while a harvest writes the file
 
 The mouse works too: click to select, scroll either pane.
 
-![filtering by subject](docs/screenshot-filter.svg)
-
 ## Command line
 
 ```bash
@@ -61,8 +59,6 @@ metha-cat -format marc21 "$URL" | lunette show -   # "-" is standard input
 `show -mode` takes the same five views as the browser. Colour is on when
 output is a terminal and off when it is piped; `-color`, `-no-color` and
 `NO_COLOR` override that.
-
-![compact view](docs/screenshot-compact.svg)
 
 ## Notes
 
@@ -88,7 +84,7 @@ vulnerability is in [SECURITY.md](SECURITY.md).
 ```bash
 make test          # also: race, cover, lint
 make golden        # rewrite the TUI frame snapshots after a layout change
-make screenshots   # regenerate the images above
+make screenshots   # regenerate the screenshot above
 make snapshot      # build the release archives without publishing
 ```
 
