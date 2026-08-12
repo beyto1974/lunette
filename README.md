@@ -8,18 +8,26 @@ right. Reads binary MARC21 and MARCXML, and converts between them.
 ## Install
 
 ```bash
-go install github.com/beyto1974/lunette@latest    # needs Go 1.25.8 or newer
+curl -fsSL https://raw.githubusercontent.com/beyto1974/lunette/main/install.sh | sh
 ```
 
-Or download a binary for linux, macOS or Windows, amd64 or arm64, from the
-[releases](https://github.com/beyto1974/lunette/releases) — check it against
-the `checksums.txt` published alongside. Or build it:
+That fetches the right binary for your platform, checks it against the
+published `checksums.txt`, and puts it in `~/.local/bin`. Set `PREFIX` to
+install elsewhere and `LUNETTE_VERSION` to pin a release. To read it before
+running it — reasonable, for anything piped into a shell:
 
 ```bash
-git clone https://github.com/beyto1974/lunette && cd lunette && make build
+curl -fsSLO https://raw.githubusercontent.com/beyto1974/lunette/main/install.sh
+less install.sh && sh install.sh
 ```
 
-Nothing else is needed at runtime — it is one static binary.
+Otherwise: `go install github.com/beyto1974/lunette@latest` (needs Go 1.25.8),
+a binary for linux, macOS or Windows from the
+[releases](https://github.com/beyto1974/lunette/releases), or
+`git clone … && make build`. Try it without installing anything with
+`go run github.com/beyto1974/lunette@latest records.mrc`.
+
+Nothing is needed at runtime — it is one static binary.
 
 ## Browse
 
