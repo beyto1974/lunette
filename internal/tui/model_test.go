@@ -24,7 +24,7 @@ func fixture(name string) string {
 
 func newLoaded(t *testing.T) *Model {
 	t.Helper()
-	m, err := New(fixture("sample.mrc"))
+	m, err := New([]string{fixture("sample.mrc")})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -66,6 +66,31 @@ func TestFormatSurvivesLoad(t *testing.T) {
 	}
 	if strings.Contains(stripANSI(m.titleBar()), "leader says MARC-8") {
 		t.Error("title bar claims an encoding override for a correctly labelled file")
+	}
+}
+
+// A harvest arrives in pieces, so the browser reads several files as one set.
+func TestOpensSeveralFiles(t *testing.T) {
+	m, err := New([]string{fixture("sample.mrc"), fixture("escapes.mrc")})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	drainLoad(t, m)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	if len(m.records) != 4 {
+		t.Fatalf("loaded %d records, want 3 + 1", len(m.records))
+	}
+	if got := len(m.list.Items()); got != 4 {
+		t.Errorf("the list shows %d records, want 4", got)
+	}
+	// The second file's record is last, and the numbering runs through.
+	m.jumpTo("4")
+	if _, it, ok := m.current(); !ok || it.ordinal != 4 {
+		t.Errorf("record 4 is %+v", it)
+	}
+	if !strings.Contains(stripANSI(m.titleBar()), "1 more") {
+		t.Errorf("title bar does not mention the other file:\n%s", stripANSI(m.titleBar()))
 	}
 }
 

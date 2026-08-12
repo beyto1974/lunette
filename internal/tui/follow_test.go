@@ -27,7 +27,7 @@ func growing(t *testing.T, n int) (path string, whole []byte) {
 func TestFollowPicksUpNewRecords(t *testing.T) {
 	path, whole := growing(t, 400) // one whole record and half of the next
 
-	m, err := New(path, WithFollow())
+	m, err := New([]string{path}, WithFollow())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestFollowPicksUpNewRecords(t *testing.T) {
 func TestFollowIdlePoll(t *testing.T) {
 	path, _ := growing(t, 400)
 
-	m, err := New(path, WithFollow())
+	m, err := New([]string{path}, WithFollow())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestFollowDetectsTruncation(t *testing.T) {
 	path, whole := growing(t, len(mustRead(t)))
 	_ = whole
 
-	m, err := New(path, WithFollow())
+	m, err := New([]string{path}, WithFollow())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

@@ -53,13 +53,20 @@ type Issue struct {
 	Ordinal int
 	Offset  int64
 	Err     error
+	// Source names the file the record came from, set when several files are
+	// read as one set. Empty for a single input.
+	Source string
 }
 
 func (i Issue) String() string {
-	if i.Offset >= 0 {
-		return fmt.Sprintf("record %d (offset %d): %v", i.Ordinal, i.Offset, i.Err)
+	where := ""
+	if i.Source != "" {
+		where = " of " + i.Source
 	}
-	return fmt.Sprintf("record %d: %v", i.Ordinal, i.Err)
+	if i.Offset >= 0 {
+		return fmt.Sprintf("record %d%s (offset %d): %v", i.Ordinal, where, i.Offset, i.Err)
+	}
+	return fmt.Sprintf("record %d%s: %v", i.Ordinal, where, i.Err)
 }
 
 // Batch is one chunk of a streaming load.
@@ -73,13 +80,15 @@ type Batch struct {
 	Issues     []Issue
 }
 
-// Result is a complete load of a file.
+// Result is a complete load of a file, or of several read as one set.
 type Result struct {
-	Format     Format
-	ForcedUTF8 bool
-	Records    []*marc.Record
-	Offsets    []int64
-	Issues     []Issue
+	Format Format
+	// MixedFormats reports that the inputs were not all the same format.
+	MixedFormats bool
+	ForcedUTF8   bool
+	Records      []*marc.Record
+	Offsets      []int64
+	Issues       []Issue
 }
 
 // DetectFormat inspects the leading bytes of a file. MARCXML starts with '<'

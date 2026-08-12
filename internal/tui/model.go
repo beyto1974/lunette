@@ -48,6 +48,9 @@ type loadMsg struct {
 
 // Model is the browser state.
 type Model struct {
+	// paths are the files being browsed, read as one set; path is the first,
+	// which is the one -follow watches.
+	paths      []string
 	path       string
 	format     marcio.Format
 	forcedUTF8 bool
@@ -111,11 +114,11 @@ type Option func(*Model)
 // WithFollow keeps reading the file as records are appended to it.
 func WithFollow() Option { return func(m *Model) { m.following = true } }
 
-// New builds a browser over path and starts loading it in the background.
-func New(path string, opts ...Option) (*Model, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+// New builds a browser over one or more files and starts loading in the
+// background.
+func New(paths []string, opts ...Option) (*Model, error) {
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no files given")
 	}
 
 	st := newStyles()
@@ -133,7 +136,8 @@ func New(path string, opts ...Option) (*Model, error) {
 	in.Prompt = ""
 
 	m := &Model{
-		path:    path,
+		paths:   paths,
+		path:    paths[0],
 		list:    l,
 		vp:      viewport.New(),
 		input:   in,
@@ -148,16 +152,36 @@ func New(path string, opts ...Option) (*Model, error) {
 		opt(m)
 	}
 
+	// Open the first file here rather than in the goroutine so that a missing
+	// file is an error from New, before the browser starts.
+	first, err := os.Open(m.path)
+	if err != nil {
+		return nil, err
+	}
 	// Bound the first read before the goroutine starts: writing model state
 	// from inside it would be a race waiting for its first refactor.
-	source := m.initialReader(f)
+	source := m.initialReader(first)
+	rest := paths[1:]
 
 	go func() {
-		defer f.Close()
+		defer first.Close()
 		err := marcio.Stream(source, batchSize, func(b marcio.Batch) error {
 			m.ch <- loadMsg{batch: b}
 			return nil
 		})
+		// The files after the first are read whole: only the first can be
+		// followed, and streaming them separately buys nothing.
+		if err == nil && len(rest) > 0 {
+			var res *marcio.Result
+			if res, err = marcio.LoadFiles(rest); err == nil {
+				m.ch <- loadMsg{batch: marcio.Batch{
+					Format:     res.Format,
+					ForcedUTF8: res.ForcedUTF8,
+					Records:    res.Records,
+					Issues:     res.Issues,
+				}}
+			}
+		}
 		m.ch <- loadMsg{err: err, done: true}
 	}()
 
@@ -180,9 +204,9 @@ func (m *Model) initialReader(f *os.File) io.Reader {
 	return io.LimitReader(f, complete)
 }
 
-// Run opens path in the browser and blocks until the user quits.
-func Run(path string, opts ...Option) error {
-	m, err := New(path, opts...)
+// Run opens the files in the browser and blocks until the user quits.
+func Run(paths []string, opts ...Option) error {
+	m, err := New(paths, opts...)
 	if err != nil {
 		return err
 	}

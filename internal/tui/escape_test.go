@@ -10,7 +10,7 @@ import (
 // loadedEscapes opens the terminal-injection fixture in a sized browser.
 func loadedEscapes(t *testing.T) *Model {
 	t.Helper()
-	m, err := New(fixture("escapes.mrc"))
+	m, err := New([]string{fixture("escapes.mrc")})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

@@ -88,7 +88,7 @@ func TestFileWatcherCoalesces(t *testing.T) {
 func TestFollowFallsBackToPolling(t *testing.T) {
 	path, whole := growing(t, 400)
 
-	m, err := New(path, WithFollow())
+	m, err := New([]string{path}, WithFollow())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestFollowReadsOnNotification(t *testing.T) {
 	path, whole := growing(t, 400)
 
 	fake := &fakeWatcher{ch: make(chan struct{}, 1)}
-	m, err := New(path, WithFollow())
+	m, err := New([]string{path}, WithFollow())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestSafetyTickDoesNotStackWaiters(t *testing.T) {
 	path, _ := growing(t, 400)
 
 	fake := &fakeWatcher{ch: make(chan struct{}, 1)}
-	m, err := New(path, WithFollow())
+	m, err := New([]string{path}, WithFollow())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

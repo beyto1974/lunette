@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/charmbracelet/x/term"
 
@@ -79,15 +80,15 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `lunette - browse and convert MARC21 files
 
 Usage:
-  lunette [-follow] <file>              open the dual-pane browser
-  lunette show [flags] <file>           print records to stdout
-  lunette export [flags] <file>         convert records to another format
-  lunette validate <file>               report records that fail to decode
+  lunette [-follow] <file>...           open the dual-pane browser
+  lunette show [flags] <file>...        print records to stdout
+  lunette export [flags] <file>...      convert records to another format
+  lunette validate <file>...            report records that fail to decode
   lunette encoding <file>               report what encoding the file really uses
 
 Input may be binary MARC21 (.mrc) or MARCXML; the format is detected from the
-first bytes. A file of "-" means standard input, for every subcommand except
-the browser, which needs a file it can seek.
+first bytes. Several files are read as one set. A file of "-" means standard
+input, for every subcommand except the browser, which needs a file it can seek.
 
 browser flags:
   -follow                                keep reading a binary MARC21 file as a
@@ -123,10 +124,14 @@ func runView(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() != 1 {
-		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
+	paths, err := inputs(fs)
+	if err != nil {
+		return err
 	}
-	if fs.Arg(0) == stdinName {
+	if *follow && len(paths) > 1 {
+		return fmt.Errorf("-follow reads one growing file, got %d", len(paths))
+	}
+	if slices.Contains(paths, stdinName) {
 		// The browser re-reads the file as the cursor moves, and -follow seeks
 		// back into it; neither works on a pipe.
 		return fmt.Errorf("cannot browse standard input: give a file, or use `lunette show -`")
@@ -136,27 +141,40 @@ func runView(args []string) error {
 	if *follow {
 		opts = append(opts, tui.WithFollow())
 	}
-	return tui.Run(fs.Arg(0), opts...)
+	return tui.Run(paths, opts...)
 }
 
 // stdinName is the conventional argument for "read standard input", so that
 // lunette can sit in a shell pipeline rather than requiring a temporary file.
 const stdinName = "-"
 
-// describe names the source for a report: a path, or the pipe.
-func describe(path string) string {
-	if path == stdinName {
+// describe names the sources for a report: a path, the pipe, or the first of
+// several files and a count.
+func describe(paths []string) string {
+	if len(paths) == 1 && paths[0] == stdinName {
 		return "standard input"
 	}
-	return path
+	return marcio.Describe(paths)
 }
 
-// load reads records from a path, or from stdin when the path is "-".
-func load(path string, stdin io.Reader) (*marcio.Result, error) {
-	if path == stdinName {
+// load reads records from the given paths, or from stdin when the only path
+// is "-".
+func load(paths []string, stdin io.Reader) (*marcio.Result, error) {
+	if len(paths) == 1 && paths[0] == stdinName {
 		return marcio.Load(stdin)
 	}
-	return marcio.LoadFile(path)
+	if slices.Contains(paths, stdinName) {
+		return nil, fmt.Errorf("standard input cannot be mixed with files")
+	}
+	return marcio.LoadFiles(paths)
+}
+
+// inputs returns the file arguments, insisting on at least one.
+func inputs(fs *flag.FlagSet) ([]string, error) {
+	if fs.NArg() == 0 {
+		return nil, fmt.Errorf("want at least one file")
+	}
+	return fs.Args(), nil
 }
 
 // useColour decides whether to emit ANSI, highest precedence first: an
@@ -209,15 +227,16 @@ func runShow(args []string, stdin io.Reader, stdout io.Writer) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() != 1 {
-		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
+	paths, err := inputs(fs)
+	if err != nil {
+		return err
 	}
 
 	m, err := render.ParseMode(*mode)
 	if err != nil {
 		return err
 	}
-	res, err := load(fs.Arg(0), stdin)
+	res, err := load(paths, stdin)
 	if err != nil {
 		return err
 	}
@@ -261,18 +280,21 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() != 1 {
-		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
-	}
-	if err := checkOutput(*outPath, fs.Arg(0), *force); err != nil {
+	paths, err := inputs(fs)
+	if err != nil {
 		return err
+	}
+	for _, path := range paths {
+		if err := checkOutput(*outPath, path, *force); err != nil {
+			return err
+		}
 	}
 	f, err := export.ParseFormat(*format)
 	if err != nil {
 		return err
 	}
 
-	res, err := load(fs.Arg(0), stdin)
+	res, err := load(paths, stdin)
 	if err != nil {
 		return err
 	}
@@ -345,15 +367,21 @@ func runEncoding(args []string, stdin io.Reader, stdout io.Writer) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() != 1 {
-		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
-	}
-
-	rep, err := analyzeEncoding(fs.Arg(0), stdin)
+	paths, err := inputs(fs)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "%s\n%s", describe(fs.Arg(0)), rep)
+	if len(paths) != 1 {
+		// The report is about one file's bytes; several would have to be
+		// summed, and the leader distribution would stop meaning anything.
+		return fmt.Errorf("encoding reads one file at a time, got %d", len(paths))
+	}
+
+	rep, err := analyzeEncoding(paths[0], stdin)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "%s\n%s", describe(paths), rep)
 
 	if rep.Conflict() {
 		return fmt.Errorf("%d record(s) declare MARC-8 but hold UTF-8", rep.MismatchedTotal)
@@ -375,17 +403,18 @@ func runValidate(args []string, stdin io.Reader, stdout io.Writer) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if fs.NArg() != 1 {
-		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
+	paths, err := inputs(fs)
+	if err != nil {
+		return err
 	}
 
-	res, err := load(fs.Arg(0), stdin)
+	res, err := load(paths, stdin)
 	if err != nil {
 		return err
 	}
 
 	fmt.Fprintf(stdout, "%s: %s, %d record(s) decoded, %d failed\n",
-		describe(fs.Arg(0)), res.Format, len(res.Records), len(res.Issues))
+		describe(paths), marcio.DescribeFormat(res), len(res.Records), len(res.Issues))
 	if res.ForcedUTF8 {
 		fmt.Fprintln(stdout, "  note: records hold UTF-8 bytes but leader/09 claims MARC-8; decoded as UTF-8")
 	}

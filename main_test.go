@@ -300,6 +300,41 @@ func TestUseColour(t *testing.T) {
 	}
 }
 
+// Several files are read as one set, so a chunked harvest needs no cat first.
+func TestSeveralFiles(t *testing.T) {
+	out, _, err := exec(t, "validate", sample, "testdata/escapes.mrc")
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if !strings.Contains(out, "4 record(s) decoded") {
+		t.Errorf("did not read both files: %q", out)
+	}
+	if !strings.Contains(out, "1 more") {
+		t.Errorf("report does not say how many files: %q", out)
+	}
+
+	out, _, err = exec(t, "show", "-mode", "raw", sample, "testdata/escapes.mrc")
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	if n := strings.Count(out, "=LDR"); n != 4 {
+		t.Errorf("show printed %d records, want 4", n)
+	}
+
+	// encoding is about one file's bytes, so it refuses a set.
+	if _, _, err := exec(t, "encoding", sample, "testdata/escapes.mrc"); err == nil {
+		t.Error("encoding accepted several files")
+	}
+	// -follow watches one growing file.
+	if _, _, err := exec(t, "-follow", sample, "testdata/escapes.mrc"); err == nil {
+		t.Error("-follow accepted several files")
+	}
+	// A pipe cannot be mixed with files.
+	if _, _, err := execStdin(t, piped(t), "validate", "-", sample); err == nil {
+		t.Error("stdin was accepted alongside a file")
+	}
+}
+
 func TestShowRejectsUnknownMode(t *testing.T) {
 	if _, _, err := exec(t, "show", "-mode", "yaml", sample); err == nil {
 		t.Error("show accepted an unknown mode")

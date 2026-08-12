@@ -99,7 +99,7 @@ func (m *Model) View() tea.View {
 }
 
 func (m *Model) titleBar() string {
-	full := m.buildTitleBar(m.path)
+	full := m.buildTitleBar(marcio.Describe(m.paths))
 	if m.width > 0 && lipglossWidth(full) > m.width {
 		// The counts matter more than where the file lives.
 		return truncate(m.buildTitleBar(filepath.Base(m.path)), m.width)
