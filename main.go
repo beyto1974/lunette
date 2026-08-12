@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"slices"
 
+	marc "github.com/beyto1974/gomarc"
 	"github.com/charmbracelet/x/term"
 
 	"github.com/beyto1974/lunette/internal/export"
@@ -169,6 +170,28 @@ func load(paths []string, stdin io.Reader) (*marcio.Result, error) {
 	return marcio.LoadFiles(paths)
 }
 
+// selection is what show and export both need: the records from the given
+// inputs, narrowed by the shared -filter, -tag and -scope flags. Keeping it in
+// one place stops the two commands drifting apart, which they had already
+// started to do.
+type selection struct {
+	query, tag, scope string
+	all               bool
+}
+
+func (sel selection) apply(paths []string, stdin io.Reader) ([]*marc.Record, *marcio.Result, error) {
+	res, err := load(paths, stdin)
+	if err != nil {
+		return nil, nil, err
+	}
+	sc, err := searchScope(sel.scope, sel.all)
+	if err != nil {
+		return nil, nil, err
+	}
+	criteria := export.Criteria{Query: sel.query, Tag: sel.tag, Scope: sc}
+	return export.Filter(res.Records, criteria), res, nil
+}
+
 // inputs returns the file arguments, insisting on at least one.
 func inputs(fs *flag.FlagSet) ([]string, error) {
 	if fs.NArg() == 0 {
@@ -236,16 +259,10 @@ func runShow(args []string, stdin io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	res, err := load(paths, stdin)
+	recs, _, err := selection{query: *query, tag: *tag, scope: *scope, all: *all}.apply(paths, stdin)
 	if err != nil {
 		return err
 	}
-
-	sc, err := searchScope(*scope, *all)
-	if err != nil {
-		return err
-	}
-	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, Scope: sc})
 	if *limit > 0 && *limit < len(recs) {
 		recs = recs[:*limit]
 	}
@@ -294,15 +311,10 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	res, err := load(paths, stdin)
+	recs, res, err := selection{query: *query, tag: *tag, scope: *scope, all: *all}.apply(paths, stdin)
 	if err != nil {
 		return err
 	}
-	sc, err := searchScope(*scope, *all)
-	if err != nil {
-		return err
-	}
-	recs := export.Filter(res.Records, export.Criteria{Query: *query, Tag: *tag, Scope: sc})
 
 	w := stdout
 	if *outPath != "" {
