@@ -195,3 +195,83 @@ func TestAnalyzeEncodingCountsBeyondTheCap(t *testing.T) {
 		t.Errorf("verdict quotes the cap rather than the total: %q", rep.Verdict())
 	}
 }
+
+// The rendered report is what a user of `lunette encoding` actually reads, so
+// it is worth asserting rather than leaving to the eye.
+func TestEncodingReportString(t *testing.T) {
+	rep, err := AnalyzeEncoding(bytes.NewReader(fixture(t, "sample.mrc")))
+	if err != nil {
+		t.Fatalf("AnalyzeEncoding: %v", err)
+	}
+
+	out := rep.String()
+	for _, want := range []string{
+		"format:", "MARC21",
+		"records:", "leader/09 says utf-8:", "leader/09 says marc-8:",
+		"records w/ non-ascii:", "records w/ marc-8 escapes:",
+		"records w/ invalid utf-8:",
+		"consistent",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report omits %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "mislabelled") {
+		t.Errorf("a consistent file should not mention mislabelling:\n%s", out)
+	}
+}
+
+// A mislabelled file lists examples and the true count, not the capped one.
+func TestEncodingReportStringMislabelled(t *testing.T) {
+	one := fixture(t, "sample.mrc")
+	var many []byte
+	for i := 0; i < maxExamples+2; i++ {
+		many = append(many, one...)
+	}
+	rep, err := AnalyzeEncoding(bytes.NewReader(relabel(t, many, ' ')))
+	if err != nil {
+		t.Fatalf("AnalyzeEncoding: %v", err)
+	}
+
+	out := rep.String()
+	if !strings.Contains(out, "mislabelled records:") {
+		t.Errorf("report does not count the mislabelled records:\n%s", out)
+	}
+	if !strings.Contains(out, "for example:") {
+		t.Errorf("report does not list examples:\n%s", out)
+	}
+	if !strings.Contains(out, "more)") {
+		t.Errorf("report does not say the list was capped:\n%s", out)
+	}
+	if !strings.Contains(out, "UTF-8 bytes behind a MARC-8 leader") {
+		t.Errorf("report does not give the verdict:\n%s", out)
+	}
+}
+
+// Truncation is worth reporting: it is the difference between a damaged file
+// and one still being written.
+func TestEncodingReportStringTruncated(t *testing.T) {
+	data := fixture(t, "sample.mrc")
+	rep, err := AnalyzeEncoding(bytes.NewReader(data[:len(data)-40]))
+	if err != nil {
+		t.Fatalf("AnalyzeEncoding: %v", err)
+	}
+	if !strings.Contains(rep.String(), "truncated records:") {
+		t.Errorf("report does not mention truncation:\n%s", rep.String())
+	}
+}
+
+// MARCXML has no leaders to reconcile, so those lines are left out.
+func TestEncodingReportStringXML(t *testing.T) {
+	rep, err := AnalyzeEncoding(bytes.NewReader(fixture(t, "sample.marcxml")))
+	if err != nil {
+		t.Fatalf("AnalyzeEncoding: %v", err)
+	}
+	out := rep.String()
+	if strings.Contains(out, "leader/09") {
+		t.Errorf("the XML report should not discuss leaders:\n%s", out)
+	}
+	if !strings.Contains(out, "MARCXML") {
+		t.Errorf("the XML report should name the format:\n%s", out)
+	}
+}
