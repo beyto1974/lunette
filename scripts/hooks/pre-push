@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Refuse a push that would put something unwanted in a public repository.
+#
+# Install with `make hooks`, which points core.hooksPath at this directory.
+# Hooks are not copied by a clone, so every checkout has to opt in once.
+#
+# In a hurry, or pushing something the audit misjudges:
+#
+#   git push --no-verify
+#
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+
+printf 'pre-push: auditing %s\n' "$repo_root"
+
+if "$repo_root/scripts/audit.sh"; then
+	exit 0
+fi
+
+cat >&2 <<'EOF'
+
+pre-push: the audit found something, so the push was stopped.
+
+Fix what it listed, or push anyway with:
+
+    git push --no-verify
+
+EOF
+exit 1

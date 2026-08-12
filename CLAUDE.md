@@ -21,6 +21,7 @@ make cover       # coverage profile and total
 make badge       # regenerate docs/coverage.svg
 make lint        # go vet + gofmt check
 make audit       # everything to check before pushing
+make hooks       # run that audit automatically on every push
 make build       # ./lunette
 ```
 
@@ -30,7 +31,10 @@ Run a single package: `go test ./internal/render/ -run TestAnnotated -v`.
 
 This repository is public, and a push is permanent: history can be rewritten
 only until someone has fetched it. Run `make audit` before pushing anything,
-and read what it says rather than watching the exit code.
+and read what it says rather than watching the exit code. `make hooks` points
+`core.hooksPath` at `scripts/hooks`, so the audit then runs on every push
+without being remembered; a push that has to go out regardless takes
+`--no-verify`. Hooks are not copied by a clone, so each checkout opts in once.
 
 It checks what a machine can decide: no `Claude-Session:` trailers in the
 commit messages, every author a noreply address, no secret-shaped strings, no

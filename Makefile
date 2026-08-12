@@ -1,4 +1,4 @@
-.PHONY: help build install test race cover badge golden screenshots lint vuln audit release-check snapshot fmt clean
+.PHONY: help build install test race cover badge golden screenshots lint vuln audit hooks release-check snapshot fmt clean
 
 BADGE   := docs/coverage.svg
 PROFILE := coverage.out
@@ -38,6 +38,10 @@ lint: ## Vet and check formatting
 
 audit: ## Everything worth checking before pushing to a public repository
 	./scripts/audit.sh
+
+hooks: ## Run the audit automatically before every push
+	git config core.hooksPath scripts/hooks
+	@echo "pre-push hook active; bypass a single push with git push --no-verify"
 
 release-check: ## Validate the release configuration
 	goreleaser check

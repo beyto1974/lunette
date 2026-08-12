@@ -101,10 +101,10 @@ if go vet ./... 2>/dev/null; then pass "go vet"; else fail "go vet"; fi
 if go test ./... >/dev/null 2>&1; then pass "tests"; else fail "tests - run make test"; fi
 
 if command -v shellcheck >/dev/null 2>&1; then
-  if shellcheck install.sh scripts/*.sh >/dev/null 2>&1; then
+  if shellcheck install.sh scripts/*.sh scripts/hooks/* >/dev/null 2>&1; then
     pass "shellcheck"
   else
-    fail "shellcheck" "$(shellcheck install.sh scripts/*.sh 2>&1 | head -20)"
+    fail "shellcheck" "$(shellcheck install.sh scripts/*.sh scripts/hooks/* 2>&1 | head -20)"
   fi
 else
   printf '  skip  shellcheck is not installed\n'
