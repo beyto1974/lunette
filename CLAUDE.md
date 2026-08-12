@@ -20,10 +20,37 @@ make race        # go test -race ./...
 make cover       # coverage profile and total
 make badge       # regenerate docs/coverage.svg
 make lint        # go vet + gofmt check
+make audit       # everything to check before pushing
 make build       # ./lunette
 ```
 
 Run a single package: `go test ./internal/render/ -run TestAnnotated -v`.
+
+## Before pushing
+
+This repository is public, and a push is permanent: history can be rewritten
+only until someone has fetched it. Run `make audit` before pushing anything,
+and read what it says rather than watching the exit code.
+
+It checks what a machine can decide: no `Claude-Session:` trailers in the
+commit messages, every author a noreply address, no secret-shaped strings, no
+email addresses, no local paths like `/opt/…` or `/home/…`, no unexpectedly
+large file, a clean tree, gofmt, vet, the tests, shellcheck, govulncheck
+reachability, the release config, and every relative link in the README.
+
+Four things it cannot decide, which stay a judgement each time:
+
+- **Whose data is in the fixtures.** `testdata/sample.marcxml` once carried real
+  people's names and URLs on a real institution's domain, copied from a
+  catalogue. Invented names cost nothing; someone else's do not belong here.
+- **What the screenshots show.** They are generated from `testdata/`, and
+  regenerating them from a real harvest would publish that harvest.
+- **What a new dependency brings.** govulncheck reports known advisories, not
+  whether a library deserves trust.
+- **Whether an error message leaks a path** a user did not supply.
+
+If a session URL or anything else slips into a commit, it can still be stripped
+while the branch is unpushed - the recipe is below. Afterwards it cannot.
 
 ## Commits
 

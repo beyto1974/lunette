@@ -1,4 +1,4 @@
-.PHONY: help build install test race cover badge golden screenshots lint vuln release-check snapshot fmt clean
+.PHONY: help build install test race cover badge golden screenshots lint vuln audit release-check snapshot fmt clean
 
 BADGE   := docs/coverage.svg
 PROFILE := coverage.out
@@ -35,6 +35,9 @@ badge: cover ## Regenerate docs/coverage.svg from the coverage profile
 lint: ## Vet and check formatting
 	go vet ./...
 	@test -z "$$(gofmt -l .)" || { echo "unformatted files:"; gofmt -l .; exit 1; }
+
+audit: ## Everything worth checking before pushing to a public repository
+	./scripts/audit.sh
 
 release-check: ## Validate the release configuration
 	goreleaser check

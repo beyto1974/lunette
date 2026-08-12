@@ -136,6 +136,18 @@ the file as the cursor moves and `-follow` seeks back into it, and `encoding`
 takes one file at a time, since summing leader distributions across files would
 say nothing useful.
 
+## Auditing before a push
+
+`make audit` runs the mechanical half of the pre-push checklist: commit
+trailers and author addresses, secret-shaped strings, stray email addresses and
+local paths, oversized files, formatting, vet, tests, shellcheck, govulncheck
+reachability, the release configuration, and the README's relative links. It
+exits non-zero on anything it finds, so it can gate a push.
+
+The half a machine cannot decide - whose data is in the fixtures, what the
+screenshots show, whether a new dependency deserves trust - is listed in
+CLAUDE.md and stays a judgement.
+
 ## Layout and tests
 
 The TUI layout is covered by golden frames in `internal/tui/testdata/golden/`:
