@@ -121,6 +121,21 @@ of advisories and none of them are reachable from here. It did catch one that
 was — GO-2026-4602, an `os` bug reachable through fsnotify's directory watch —
 which is why go.mod asks for Go 1.25.8 rather than 1.25.0.
 
+## Reading several files, and pipes
+
+A harvest arrives in pieces, so every subcommand except `encoding` takes any
+number of files and reads them as one set. Record numbering runs across the
+whole set and each reported issue names the file it came from, so "record 402"
+means something once there is more than one input. Formats may be mixed; the
+report says so. Concatenating the files first would work for binary MARC but
+not for MARCXML, whose documents cannot be joined end to end.
+
+A file argument of `-` means standard input, so lunette can sit in a pipeline:
+`metha-cat … | lunette validate -`. The browser refuses it, because it re-reads
+the file as the cursor moves and `-follow` seeks back into it, and `encoding`
+takes one file at a time, since summing leader distributions across files would
+say nothing useful.
+
 ## Layout and tests
 
 The TUI layout is covered by golden frames in `internal/tui/testdata/golden/`:

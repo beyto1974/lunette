@@ -26,6 +26,7 @@ Nothing else is needed at runtime — it is one static binary.
 ```bash
 lunette records.mrc
 lunette records.marcxml         # the format is detected, not assumed
+lunette part-*.mrc              # several files read as one set
 lunette -follow harvest.mrc     # keep reading while a harvest writes the file
 ```
 
@@ -54,9 +55,12 @@ lunette encoding records.mrc                       # what encoding the file real
 lunette show -mode compact records.mrc             # print records
 lunette show -scope record -filter privacy f.mrc   # search inside records, not just titles
 lunette export -format xml records.mrc > out.xml   # mrc, xml or json
+metha-cat -format marc21 "$URL" | lunette show -   # "-" is standard input
 ```
 
-`show -mode` takes the same five views as the browser.
+`show -mode` takes the same five views as the browser. Colour is on when
+output is a terminal and off when it is piped; `-color`, `-no-color` and
+`NO_COLOR` override that.
 
 ![compact view](docs/screenshot-compact.svg)
 

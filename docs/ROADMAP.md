@@ -164,18 +164,31 @@ assertions do not.
 
 </details>
 
-### 2.3 Saved views and bookmarks — S
+### 2.3 Machine-readable reports — S
+
+`validate --json` and `encoding --json`. A harvest script can gate on an exit
+code today, but not on specifics: how many records were mislabelled, which
+ordinals failed. The reports already hold that; only the rendering is missing.
+
+### 2.3a Duplicate detection — S
+
+OAI-PMH re-delivers records, and nothing else in the pipeline notices. A count
+of repeated 001s across a set — with the option to keep the last of each on
+export — is a question this tool is placed to answer now that it reads several
+files as one.
+
+### 2.4 Saved views and bookmarks — S
 
 Mark records while browsing, then export only the marked set. Pairs naturally
 with the existing `export --filter`.
 
-### 2.4 Filter history and better query syntax — S
+### 2.5 Filter history and better query syntax — S
 
 `year:2020`, `has:856`, `-tag:650` (negation), and recall of previous filters
 with `↑` in the prompt. The current syntax handles text, one `tag:`, and a
 scope prefix.
 
-### 2.5 Configurable colours — S
+### 2.6 Configurable colours — S
 
 A small TOML or JSON theme file mapping the six semantic roles (tag, indicator,
 subfield code, label, leader, match) to colours, plus a `--no-color` flag.
@@ -187,7 +200,7 @@ everyone.
 `lunette -follow harvest.mrc` reads records as a harvest appends them, taking
 only whole records so a half-written one is not mistaken for damage.
 
-### 2.6 Export the current filter from the TUI — S
+### 2.7 Export the current filter from the TUI — S
 
 `e` in the browser writes the filtered set to a file using the export package
 that already exists. Closes the loop between browsing and extracting.

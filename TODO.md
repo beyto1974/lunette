@@ -22,8 +22,6 @@ Near-term, actionable items for lunette. Larger feature proposals live in
 
 - [ ] Golden-file tests for the annotated renderer, so layout changes are
       visible in review rather than asserted line by line.
-- [ ] Add a terminal-level TUI test with `teatest` to cover key handling; the
-      current tests drive the model directly and leave `handleKey` at 0%.
 - [ ] Fixture with MARC-8 records (not just UTF-8) to prove the encoding
       detector leaves genuine MARC-8 alone.
 - [ ] Fuzz `marcio.Load` against random byte strings; the parser panics on some
@@ -31,11 +29,6 @@ Near-term, actionable items for lunette. Larger feature proposals live in
 
 ## Packaging
 
-- [ ] Cut the first release: `git tag -a v0.1.0 -m "..." && git push origin v0.1.0`.
-      The workflow and the GoReleaser config are in place and tested with
-      `make snapshot`; nothing has been tagged yet.
-- [ ] Push to `github.com/beyto1974/lunette` so the module path resolves; it
-      is set but the remote does not exist yet.
 - [ ] Consider vendoring or pinning `gomarc`; it is pre-1.0 (v0.2.0) and its
       API may move.
 
