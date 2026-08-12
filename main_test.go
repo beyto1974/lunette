@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,9 +18,80 @@ const sample = "testdata/sample.mrc"
 // exec runs a command line and returns what it wrote.
 func exec(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
+	return execStdin(t, nil, args...)
+}
+
+// execStdin runs a command line with something on standard input.
+func execStdin(t *testing.T, stdin io.Reader, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	if stdin == nil {
+		stdin = strings.NewReader("")
+	}
 	var out, errb bytes.Buffer
-	err = run(args, &out, &errb)
+	err = run(args, stdin, &out, &errb)
 	return out.String(), errb.String(), err
+}
+
+// piped is the fixture as it would arrive through a pipe.
+func piped(t *testing.T) io.Reader {
+	t.Helper()
+	data, err := os.ReadFile(sample)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	return bytes.NewReader(data)
+}
+
+// A dash means standard input, so lunette can join a shell pipeline instead of
+// demanding a temporary file.
+func TestReadsStdin(t *testing.T) {
+	out, _, err := execStdin(t, piped(t), "validate", "-")
+	if err != nil {
+		t.Fatalf("validate -: %v", err)
+	}
+	if !strings.Contains(out, "3 record(s) decoded") {
+		t.Errorf("validate did not read the pipe: %q", out)
+	}
+	if !strings.Contains(out, "standard input") {
+		t.Errorf("report should name the source: %q", out)
+	}
+
+	out, _, err = execStdin(t, piped(t), "show", "-mode", "raw", "-")
+	if err != nil {
+		t.Fatalf("show -: %v", err)
+	}
+	if n := strings.Count(out, "=LDR"); n != 3 {
+		t.Errorf("show read %d records from the pipe, want 3", n)
+	}
+
+	out, _, err = execStdin(t, piped(t), "encoding", "-")
+	if err != nil {
+		t.Fatalf("encoding -: %v", err)
+	}
+	if !strings.Contains(out, "records:") {
+		t.Errorf("encoding did not read the pipe: %q", out)
+	}
+
+	out, _, err = execStdin(t, piped(t), "export", "-format", "json", "-")
+	if err != nil {
+		t.Fatalf("export -: %v", err)
+	}
+	var v []any
+	if err := json.Unmarshal([]byte(out), &v); err != nil || len(v) != 3 {
+		t.Errorf("export from a pipe gave %d records: %v", len(v), err)
+	}
+}
+
+// The browser needs a file it can re-open and seek, so a pipe has to be
+// refused rather than left hanging.
+func TestBrowserRefusesStdin(t *testing.T) {
+	_, _, err := execStdin(t, piped(t), "-")
+	if err == nil {
+		t.Fatal("the browser accepted a pipe")
+	}
+	if !strings.Contains(err.Error(), "cannot browse") {
+		t.Errorf("error = %q, want it to explain why", err)
+	}
 }
 
 func TestValidateClean(t *testing.T) {
@@ -165,6 +237,66 @@ func TestShowIndent(t *testing.T) {
 	var v any
 	if err := json.Unmarshal([]byte(pretty), &v); err != nil {
 		t.Fatalf("indented output is not valid JSON: %v", err)
+	}
+}
+
+// Colour follows the usual conventions rather than needing a flag every time.
+func TestColourPrecedence(t *testing.T) {
+	// Not a terminal in a test, so the automatic answer is "no colour".
+	out, _, err := exec(t, "show", "-n", "1", sample)
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	if strings.Contains(out, "\x1b[") {
+		t.Error("piped output is coloured")
+	}
+
+	out, _, _ = exec(t, "show", "-n", "1", "-color", sample)
+	if !strings.Contains(out, "\x1b[") {
+		t.Error("-color did not force colour on")
+	}
+
+	// -no-color beats -color.
+	out, _, _ = exec(t, "show", "-n", "1", "-color", "-no-color", sample)
+	if strings.Contains(out, "\x1b[") {
+		t.Error("-no-color did not beat -color")
+	}
+
+	// NO_COLOR beats the automatic choice but not an explicit -color.
+	t.Setenv("NO_COLOR", "1")
+	out, _, _ = exec(t, "show", "-n", "1", "-color", sample)
+	if !strings.Contains(out, "\x1b[") {
+		t.Error("-color should beat NO_COLOR: it was asked for explicitly")
+	}
+}
+
+func TestUseColour(t *testing.T) {
+	tests := []struct {
+		name              string
+		force, off, noEnv bool
+		terminal          bool
+		want              bool
+	}{
+		{name: "piped, nothing set", want: false},
+		{name: "terminal", terminal: true, want: true},
+		{name: "terminal with NO_COLOR", terminal: true, noEnv: true, want: false},
+		{name: "piped with -color", force: true, want: true},
+		{name: "terminal with -no-color", terminal: true, off: true, want: false},
+		{name: "-no-color beats -color", force: true, off: true, want: false},
+		{name: "-color beats NO_COLOR", force: true, noEnv: true, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.noEnv {
+				t.Setenv("NO_COLOR", "1")
+			} else {
+				t.Setenv("NO_COLOR", "")
+			}
+			if got := useColour(tt.force, tt.off, tt.terminal); got != tt.want {
+				t.Errorf("useColour(force=%v, off=%v, terminal=%v) = %v, want %v",
+					tt.force, tt.off, tt.terminal, got, tt.want)
+			}
+		})
 	}
 }
 

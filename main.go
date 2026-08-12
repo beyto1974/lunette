@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/charmbracelet/x/term"
+
 	"github.com/beyto1974/lunette/internal/export"
 	"github.com/beyto1974/lunette/internal/marcio"
 	"github.com/beyto1974/lunette/internal/render"
@@ -27,7 +29,7 @@ var (
 )
 
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "lunette: "+err.Error())
 		os.Exit(1)
 	}
@@ -35,7 +37,7 @@ func main() {
 
 // run dispatches a command line. Output goes to the given writers so that the
 // subcommands are testable without touching the process streams.
-func run(args []string, stdout, stderr io.Writer) error {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		usage(stderr)
 		return fmt.Errorf("no file given")
@@ -43,13 +45,13 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	switch args[0] {
 	case "export":
-		return runExport(args[1:], stdout, stderr)
+		return runExport(args[1:], stdin, stdout, stderr)
 	case "validate":
-		return runValidate(args[1:], stdout)
+		return runValidate(args[1:], stdin, stdout)
 	case "encoding":
-		return runEncoding(args[1:], stdout)
+		return runEncoding(args[1:], stdin, stdout)
 	case "show":
-		return runShow(args[1:], stdout)
+		return runShow(args[1:], stdin, stdout)
 	case "version", "-version", "--version":
 		fmt.Fprintln(stdout, versionLine())
 		return nil
@@ -84,7 +86,8 @@ Usage:
   lunette encoding <file>               report what encoding the file really uses
 
 Input may be binary MARC21 (.mrc) or MARCXML; the format is detected from the
-file's first bytes.
+first bytes. A file of "-" means standard input, for every subcommand except
+the browser, which needs a file it can seek.
 
 browser flags:
   -follow                                keep reading a binary MARC21 file as a
@@ -99,7 +102,9 @@ show flags:
   -tag NNN                               keep records carrying field NNN
   -width N                               wrap long fields at N columns
   -indent                                pretty-print the json and xml modes
-  -color                                 force ANSI colour when not a terminal
+  -color / -no-color                     force colour on or off (default: on
+                                         when stdout is a terminal, and off
+                                         when NO_COLOR is set)
 
 export flags:
   -format mrc|xml|json                   output encoding (required)
@@ -121,12 +126,62 @@ func runView(args []string) error {
 	if fs.NArg() != 1 {
 		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
 	}
+	if fs.Arg(0) == stdinName {
+		// The browser re-reads the file as the cursor moves, and -follow seeks
+		// back into it; neither works on a pipe.
+		return fmt.Errorf("cannot browse standard input: give a file, or use `lunette show -`")
+	}
 
 	var opts []tui.Option
 	if *follow {
 		opts = append(opts, tui.WithFollow())
 	}
 	return tui.Run(fs.Arg(0), opts...)
+}
+
+// stdinName is the conventional argument for "read standard input", so that
+// lunette can sit in a shell pipeline rather than requiring a temporary file.
+const stdinName = "-"
+
+// describe names the source for a report: a path, or the pipe.
+func describe(path string) string {
+	if path == stdinName {
+		return "standard input"
+	}
+	return path
+}
+
+// load reads records from a path, or from stdin when the path is "-".
+func load(path string, stdin io.Reader) (*marcio.Result, error) {
+	if path == stdinName {
+		return marcio.Load(stdin)
+	}
+	return marcio.LoadFile(path)
+}
+
+// useColour decides whether to emit ANSI, highest precedence first: an
+// explicit -no-color, an explicit -color, the NO_COLOR convention
+// (https://no-color.org), and finally whether output is going to a terminal at
+// all. Piping into a file should not fill it with escapes; piping into less -R
+// should not need a flag.
+func useColour(force, off, terminal bool) bool {
+	switch {
+	case off:
+		return false
+	case force:
+		return true
+	case os.Getenv("NO_COLOR") != "":
+		return false
+	default:
+		return terminal
+	}
+}
+
+// isTerminal reports whether w is a terminal. Anything that is not an *os.File
+// - a buffer in a test, a pipe - is not.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(f.Fd())
 }
 
 // searchScope resolves the -scope flag, with -all as a shorthand kept for the
@@ -138,7 +193,7 @@ func searchScope(name string, all bool) (marcio.Scope, error) {
 	return marcio.ParseScope(name)
 }
 
-func runShow(args []string, stdout io.Writer) error {
+func runShow(args []string, stdin io.Reader, stdout io.Writer) error {
 	fs := flag.NewFlagSet("show", flag.ContinueOnError)
 	fs.SetOutput(stdout)
 	mode := fs.String("mode", "annotated", "annotated, raw, json or xml")
@@ -149,7 +204,8 @@ func runShow(args []string, stdout io.Writer) error {
 	all := fs.Bool("all", false, "shorthand for -scope both")
 	width := fs.Int("width", 0, "wrap long fields at this many columns (0 = no wrapping)")
 	indent := fs.Bool("indent", false, "pretty-print the json and xml modes")
-	color := fs.Bool("color", false, "force ANSI colour")
+	color := fs.Bool("color", false, "force ANSI colour on")
+	noColour := fs.Bool("no-color", false, "force ANSI colour off")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -161,7 +217,7 @@ func runShow(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	res, err := marcio.LoadFile(fs.Arg(0))
+	res, err := load(fs.Arg(0), stdin)
 	if err != nil {
 		return err
 	}
@@ -175,10 +231,12 @@ func runShow(args []string, stdout io.Writer) error {
 		recs = recs[:*limit]
 	}
 
+	colour := useColour(*color, *noColour, isTerminal(stdout))
+
 	out := bufio.NewWriter(stdout)
 	defer out.Flush()
 	for i, rec := range recs {
-		s, err := render.Render(rec, m, render.Options{Color: *color, Width: *width, Indent: *indent})
+		s, err := render.Render(rec, m, render.Options{Color: colour, Width: *width, Indent: *indent})
 		if err != nil {
 			return err
 		}
@@ -190,7 +248,7 @@ func runShow(args []string, stdout io.Writer) error {
 	return nil
 }
 
-func runExport(args []string, stdout, stderr io.Writer) error {
+func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	format := fs.String("format", "", "mrc, xml or json")
@@ -214,7 +272,7 @@ func runExport(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	res, err := marcio.LoadFile(fs.Arg(0))
+	res, err := load(fs.Arg(0), stdin)
 	if err != nil {
 		return err
 	}
@@ -281,7 +339,7 @@ func checkOutput(outPath, inputPath string, force bool) error {
 // runEncoding reports what a file's bytes say about its encoding, and whether
 // its leaders agree. It exits non-zero on a conflict so a harvest script can
 // catch a repository that mislabels its records.
-func runEncoding(args []string, stdout io.Writer) error {
+func runEncoding(args []string, stdin io.Reader, stdout io.Writer) error {
 	fs := flag.NewFlagSet("encoding", flag.ContinueOnError)
 	fs.SetOutput(stdout)
 	if err := fs.Parse(args); err != nil {
@@ -291,11 +349,11 @@ func runEncoding(args []string, stdout io.Writer) error {
 		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
 	}
 
-	rep, err := marcio.AnalyzeEncodingFile(fs.Arg(0))
+	rep, err := analyzeEncoding(fs.Arg(0), stdin)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "%s\n%s", fs.Arg(0), rep)
+	fmt.Fprintf(stdout, "%s\n%s", describe(fs.Arg(0)), rep)
 
 	if rep.Conflict() {
 		return fmt.Errorf("%d record(s) declare MARC-8 but hold UTF-8", rep.MismatchedTotal)
@@ -303,7 +361,15 @@ func runEncoding(args []string, stdout io.Writer) error {
 	return nil
 }
 
-func runValidate(args []string, stdout io.Writer) error {
+// analyzeEncoding reports on a path, or on stdin when the path is "-".
+func analyzeEncoding(path string, stdin io.Reader) (*marcio.EncodingReport, error) {
+	if path == stdinName {
+		return marcio.AnalyzeEncoding(stdin)
+	}
+	return marcio.AnalyzeEncodingFile(path)
+}
+
+func runValidate(args []string, stdin io.Reader, stdout io.Writer) error {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.SetOutput(stdout)
 	if err := fs.Parse(args); err != nil {
@@ -313,13 +379,13 @@ func runValidate(args []string, stdout io.Writer) error {
 		return fmt.Errorf("want exactly one file, got %d", fs.NArg())
 	}
 
-	res, err := marcio.LoadFile(fs.Arg(0))
+	res, err := load(fs.Arg(0), stdin)
 	if err != nil {
 		return err
 	}
 
 	fmt.Fprintf(stdout, "%s: %s, %d record(s) decoded, %d failed\n",
-		fs.Arg(0), res.Format, len(res.Records), len(res.Issues))
+		describe(fs.Arg(0)), res.Format, len(res.Records), len(res.Issues))
 	if res.ForcedUTF8 {
 		fmt.Fprintln(stdout, "  note: records hold UTF-8 bytes but leader/09 claims MARC-8; decoded as UTF-8")
 	}
