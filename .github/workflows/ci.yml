@@ -62,7 +62,7 @@ jobs:
         run: ./scripts/coverage-badge.sh coverage.out docs/coverage.svg
 
       - name: Upload coverage artefacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: |
@@ -92,7 +92,7 @@ jobs:
           CGO_ENABLED: "0"
         run: go build -o "lunette-${GOOS}-${GOARCH}" .
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
           path: lunette-${{ matrix.goos }}-${{ matrix.goarch }}
