@@ -1,7 +1,10 @@
 # lunette
 
 A terminal browser for MARC21 files: record list on the left, record on the
-right. Reads binary MARC21 and MARCXML, and converts between them.
+right. Reads binary MARC21 and MARCXML, and converts between them. Files larger
+than memory are the ordinary case: a 3.7 GB harvest of 1.4 million records
+opens in a few minutes and half a gigabyte, and `lunette show -n 1` on it
+answers instantly.
 
 ![lunette browsing a MARC file](docs/screenshot-browse.svg)
 
@@ -21,7 +24,7 @@ curl -fsSLO https://raw.githubusercontent.com/beyto1974/lunette/main/install.sh
 less install.sh && sh install.sh
 ```
 
-Otherwise: `go install github.com/beyto1974/lunette@latest` (needs Go 1.25.8),
+Otherwise: `go install github.com/beyto1974/lunette@latest` (needs Go 1.25.13),
 a binary for linux, macOS or Windows from the
 [releases](https://github.com/beyto1974/lunette/releases), or
 `git clone … && make build`. Try it without installing anything with
@@ -74,8 +77,16 @@ output is a terminal and off when it is piped; `-color`, `-no-color` and
   which claims MARC-8; read literally that turns `données` into `donn©♭es`.
   lunette trusts the bytes, says so in the title bar, and labels exports
   correctly. `lunette encoding` reports the evidence.
+- **Large files.** Nothing reads a whole file into memory. `show`, `export` and
+  `validate` stream, and `show -n` stops reading once it has what it was asked
+  for. MARCXML is cut into blocks of whole records and decoded on every core.
+  The browser keeps a list row and a byte offset per record and fetches the
+  record itself when the cursor lands on it, so what it holds is measured in
+  hundreds of bytes per record rather than kilobytes.
 - **Damaged records** are reported with their offset, not skipped silently, and
-  a record that would crash the parser is contained.
+  a record that would crash the parser is contained. In MARCXML the damage
+  costs the record holding it: the rest of the block is read again one record
+  at a time, so a harvest cut off mid-record still gives up everything else.
 - **Untrusted input.** Control characters in a record are shown as `^[` rather
   than sent to the terminal, where they could rewrite the screen or reach the
   clipboard.
@@ -96,7 +107,7 @@ make screenshots   # regenerate the screenshot above
 make snapshot      # build the release archives without publishing
 ```
 
-Releases are cut by pushing a tag: GoReleaser builds the four binaries, stamps
+Releases are cut by pushing a tag: GoReleaser builds the six binaries, stamps
 the version into `lunette version`, and publishes archives and checksums.
 
 Built on [gomarc](https://github.com/beyto1974/gomarc) and the
