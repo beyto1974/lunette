@@ -64,6 +64,45 @@ Exports are labelled correctly on the way out: everything lunette writes is
 UTF-8, so every exported record carries leader/09 = `a`. Passing a blank leader
 through is how the problem spreads.
 
+## Files larger than memory
+
+Harvests run to gigabytes: 3.7 GB and 1.4 million records is an ordinary one.
+Nothing reads a whole file.
+
+`show`, `export` and `validate` walk the input a batch at a time and keep none
+of it, so memory does not grow with the file. `show -n` stops reading once it
+has printed what it was asked for rather than parsing the rest and throwing it
+away, which is the difference between an instant answer and minutes of work.
+`export` writes its output beside the destination and moves it into place at
+the end, so an export that fails partway leaves what was there alone.
+
+MARCXML is the slow format - `encoding/xml` decodes a character at a time and
+is most of the cost of reading one - so a document is cut into blocks of whole
+records and each block given a decoder of its own. The cut is a scan rather
+than a search for `</record>`: that text can sit inside a comment or a CDATA
+section, where it closes nothing, and cutting there would tear a record in
+half. A record with no closing tag ends where the next record starts, so
+damage costs the record holding it rather than its neighbour as well.
+
+That splitting is also the only way past damaged MARCXML. An `encoding/xml`
+decoder returns the same syntax error for ever once it has seen one, so a
+reader that records the failure and asks again never stops. A block that fails
+is read again one record at a time, each with a decoder of its own: the record
+numbering stays true and everything undamaged still arrives.
+
+The browser keeps a list row per record - a title, a year, a search key, the
+field tags it carries - and where the record sits in its file. A decoded record
+costs several kilobytes for as long as the browser is open; a row costs a few
+hundred bytes. The record itself is fetched when the cursor lands on it, which
+is an open, a seek and a couple of kilobytes; the last one fetched is kept, so
+a redraw or a mode switch does not read it again. The file is not held open
+between fetches: a harvester replacing a file cannot rename over an open one on
+Windows, and on Unix a held descriptor would go on reading the replaced inode.
+
+Filtering by tag is answered from what was kept, so narrowing a million records
+to the ones carrying an 856 reads nothing. The `all:` scope does read the
+records again, because searching every subfield is what it means.
+
 ## Following a file
 
 `-follow` watches a binary MARC21 file while it grows, through inotify on Linux
