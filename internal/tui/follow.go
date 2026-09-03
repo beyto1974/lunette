@@ -130,6 +130,11 @@ func (m *Model) handleFollow(msg followMsg) tea.Cmd {
 		return m.waitForNext(msg.from)
 	}
 
+	// The file may have been replaced rather than appended to since the last
+	// read, and the records just reported belong to whatever is at the path
+	// now. Fetch them through a descriptor opened now, not one opened before.
+	m.reopen(0)
+
 	before := m.appendBatch(msg.batch)
 	cmd := m.appendItems(before)
 	if before == 0 {

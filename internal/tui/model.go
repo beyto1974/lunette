@@ -64,9 +64,11 @@ type Model struct {
 	entries []entry
 	issues  []marcio.Issue
 	// files and readers are opened on demand, one per path, and stay open for
-	// as long as the browser does.
-	files   []*os.File
-	readers []*marcio.RecordReader
+	// as long as the browser does; fileInfo remembers how each was read, since
+	// that is how its records have to be read back.
+	files    []*os.File
+	readers  []*marcio.RecordReader
+	fileInfo []fileInfo
 	// cached is the record last fetched, kept because the browser asks for the
 	// same one over and over as it redraws.
 	cached    *marc.Record
@@ -299,6 +301,23 @@ func (m *Model) current() (*marc.Record, item, bool) {
 	return rec, it, true
 }
 
+// currentOrExplain is current() for something the user asked for. A record
+// that cannot be read back says so in the status line: doing nothing silently
+// reads as a broken key rather than a broken file.
+func (m *Model) currentOrExplain() (*marc.Record, item, bool) {
+	rec, it, err := m.currentRecord()
+	if err != nil {
+		if !errors.Is(err, errNoSelection) {
+			m.status = unreadable + err.Error()
+		}
+		return nil, item{}, false
+	}
+	return rec, it, true
+}
+
+// unreadable prefixes every report of a record that could not be fetched back.
+const unreadable = "this record could not be read back: "
+
 // currentRecord is current with the reason it failed, which the record pane
 // shows rather than drawing a blank.
 func (m *Model) currentRecord() (*marc.Record, item, error) {
@@ -350,7 +369,7 @@ func (m *Model) redrawDetail() {
 		return
 	}
 	if err != nil {
-		m.vp.SetContent("this record could not be read back: " + err.Error())
+		m.vp.SetContent(unreadable + err.Error())
 		m.fields = nil
 		return
 	}

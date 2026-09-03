@@ -105,3 +105,33 @@ func TestRecordsRememberTheirFile(t *testing.T) {
 		}
 	}
 }
+
+// A set of files need not all be the same format, and a record has to be read
+// back the way it was read in. Deciding that from whatever the last file said
+// would mean a binary reader turned loose on MARCXML.
+func TestMixedFormatsAreReadBackPerFile(t *testing.T) {
+	paths := []string{fixture("sample.mrc"), fixture("sample.marcxml"), fixture("sample.mrc")}
+	m, err := New(paths)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	drain(t, m)
+
+	if len(m.entries) != 9 {
+		t.Fatalf("loaded %d records, want 9", len(m.entries))
+	}
+	for i := range m.entries {
+		rec, err := m.record(i)
+		if err != nil {
+			t.Fatalf("record %d (file %d): %v", i+1, m.entries[i].file, err)
+		}
+		// Every fixture record has a title; a record read with the wrong
+		// reader would not decode at all.
+		if got := m.entries[i].title; got == "" {
+			t.Errorf("record %d has no title", i+1)
+		} else if rec == nil {
+			t.Errorf("record %d came back empty", i+1)
+		}
+	}
+}
