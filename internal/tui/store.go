@@ -84,11 +84,12 @@ func (m *Model) record(i int) (*marc.Record, error) {
 	}
 
 	e := m.entries[i]
-	rr, err := m.readerFor(e.file)
-	if err != nil {
-		return nil, err
-	}
-	rec, err := rr.At(e.ext)
+	var rec *marc.Record
+	err := m.withReader(e.file, func(rr *marcio.RecordReader) error {
+		var err error
+		rec, err = rr.At(e.ext)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -97,59 +98,33 @@ func (m *Model) record(i int) (*marc.Record, error) {
 	return rec, nil
 }
 
-// readerFor opens a file the first time a record is wanted from it and keeps
-// it open, so that browsing a set of harvest files is one descriptor each
-// rather than one open per keystroke.
-func (m *Model) readerFor(i int) (*marcio.RecordReader, error) {
+// forgetCached drops the record being held, for when the file it came from may
+// no longer say the same thing.
+func (m *Model) forgetCached() { m.cached, m.cachedIdx = nil, -1 }
+
+// withReader opens the file a record came from, hands a reader for it to fn,
+// and closes it again.
+//
+// The descriptor is deliberately not kept. A browser that held one open for as
+// long as it ran would stop a harvester replacing the file at all on Windows,
+// where an open file cannot be renamed over, and on Unix would go on reading
+// the unlinked inode after it had been. Opening costs microseconds, which a
+// keystroke can afford; a sweep that wants every record holds one reader open
+// for the whole sweep instead.
+func (m *Model) withReader(i int, fn func(*marcio.RecordReader) error) error {
 	if i < 0 || i >= len(m.paths) {
-		return nil, fmt.Errorf("this record does not name a file it came from")
-	}
-	if i < len(m.readers) && m.readers[i] != nil {
-		return m.readers[i], nil
+		return fmt.Errorf("this record does not name a file it came from")
 	}
 	if i >= len(m.fileInfo) || !m.fileInfo[i].known {
-		return nil, fmt.Errorf("%s was not read as either format", m.paths[i])
+		return fmt.Errorf("%s was not read as either format", m.paths[i])
 	}
 
 	f, err := os.Open(m.paths[i])
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for len(m.files) <= i {
-		m.files = append(m.files, nil)
-		m.readers = append(m.readers, nil)
-	}
-	m.files[i] = f
-	m.readers[i] = marcio.NewRecordReader(f, m.fileInfo[i].format, m.fileInfo[i].forcedUTF8)
-	return m.readers[i], nil
-}
-
-// reopen drops the descriptor held for a file, so the next fetch opens it
-// again by name.
-//
-// A writer that replaces a file by renaming over it - which is what an atomic
-// write is - leaves the old descriptor pointing at an unlinked inode, while
-// the offsets a follow read reports belong to the new file. Reading a record
-// through the stale descriptor would show the bytes that used to be there.
-func (m *Model) reopen(i int) {
-	if i < 0 || i >= len(m.files) {
-		return
-	}
-	if m.files[i] != nil {
-		m.files[i].Close()
-	}
-	m.files[i], m.readers[i] = nil, nil
-	m.cached, m.cachedIdx = nil, -1
-}
-
-// closeFiles releases the descriptors the browser opened to fetch records.
-func (m *Model) closeFiles() {
-	for _, f := range m.files {
-		if f != nil {
-			f.Close()
-		}
-	}
-	m.files, m.readers = nil, nil
+	defer f.Close()
+	return fn(marcio.NewRecordReader(f, m.fileInfo[i].format, m.fileInfo[i].forcedUTF8))
 }
 
 // pathIndex maps the file a batch came from to its place in the browser's

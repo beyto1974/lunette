@@ -63,11 +63,9 @@ type Model struct {
 	// themselves are fetched from the file when one is wanted. See store.go.
 	entries []entry
 	issues  []marcio.Issue
-	// files and readers are opened on demand, one per path, and stay open for
-	// as long as the browser does; fileInfo remembers how each was read, since
-	// that is how its records have to be read back.
-	files    []*os.File
-	readers  []*marcio.RecordReader
+	// fileInfo remembers how each input was read, since that is how its
+	// records have to be read back. The files themselves are opened and closed
+	// around each fetch: see withReader.
 	fileInfo []fileInfo
 	// cached is the record last fetched, kept because the browser asks for the
 	// same one over and over as it redraws.
@@ -233,7 +231,6 @@ func Run(paths []string, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-	defer m.closeFiles()
 	_, err = tea.NewProgram(m).Run()
 	return err
 }
