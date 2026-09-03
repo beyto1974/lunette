@@ -177,19 +177,44 @@ func safeNext(s source) (rec *marc.Record, err error) {
 
 // Stream reads r and hands batchSize records at a time to fn. Issues are
 // reported in the batch they occurred in, so a caller can surface parse
-// failures as they happen. A non-nil error from fn stops the walk.
+// failures as they happen. A non-nil error from fn stops the walk; ErrStop
+// stops it without being reported as a failure.
 func Stream(r io.Reader, batchSize int, fn func(Batch) error) error {
+	_, err := walk(r, batchSize, walkOpts{}, fn)
+	return err
+}
+
+// walkOpts positions one walk inside a larger set of them: base is how many
+// records were decoded before this input, so ordinals run across the whole
+// set, and source names the file for the issues it raises.
+type walkOpts struct {
+	base   int
+	source string
+}
+
+// walkResult is what a single walk learned, which is everything a Summary
+// needs about one input.
+type walkResult struct {
+	format     Format
+	forcedUTF8 bool
+	decoded    int
+	stopped    bool
+}
+
+// walk is Stream's body, told where in a set of inputs it sits.
+func walk(r io.Reader, batchSize int, opts walkOpts, fn func(Batch) error) (walkResult, error) {
 	if batchSize < 1 {
 		batchSize = 1
 	}
 	src, format, forcedUTF8, err := newSource(r)
 	if err != nil {
-		return err
+		return walkResult{}, err
 	}
+	res := walkResult{format: format, forcedUTF8: forcedUTF8}
 
 	batch := Batch{Format: format, ForcedUTF8: forcedUTF8}
 	var offset int64
-	ordinal := 0
+	ordinal := opts.base
 
 	flush := func() error {
 		if len(batch.Records) == 0 && len(batch.Issues) == 0 {
@@ -213,7 +238,7 @@ func Stream(r io.Reader, batchSize int, fn func(Batch) error) error {
 			break
 		}
 		if err != nil {
-			batch.Issues = append(batch.Issues, Issue{Ordinal: ordinal, Offset: start, Err: err})
+			batch.Issues = append(batch.Issues, Issue{Ordinal: ordinal, Offset: start, Err: err, Source: opts.source})
 			if errors.Is(err, errPanicked) {
 				break
 			}
@@ -222,15 +247,28 @@ func Stream(r io.Reader, batchSize int, fn func(Batch) error) error {
 		if src.size() == offsetUnknown {
 			start = offsetUnknown
 		}
+		res.decoded++
 		batch.Records = append(batch.Records, rec)
 		batch.Offsets = append(batch.Offsets, start)
 		if len(batch.Records) >= batchSize {
 			if err := flush(); err != nil {
-				return err
+				return stopOrFail(res, err)
 			}
 		}
 	}
-	return flush()
+	if err := flush(); err != nil {
+		return stopOrFail(res, err)
+	}
+	return res, nil
+}
+
+// stopOrFail separates a caller that has seen enough from one that broke.
+func stopOrFail(res walkResult, err error) (walkResult, error) {
+	if errors.Is(err, ErrStop) {
+		res.stopped = true
+		return res, nil
+	}
+	return res, err
 }
 
 // Load reads every record from r.
