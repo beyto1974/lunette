@@ -646,12 +646,18 @@ func TestExportWritesTheWholeDocument(t *testing.T) {
 	if len(v) != 3 {
 		t.Errorf("exported %d records, want 3", len(v))
 	}
-	info, err := os.Stat(out)
-	if err != nil {
-		t.Fatalf("Stat: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0o644 {
-		t.Errorf("exported file mode = %v, want 644", perm)
+	// The file is written under a temporary name and moved into place, and a
+	// temporary file is created readable by its owner alone. An export is
+	// ordinary output and has to look like it - on the systems that have
+	// Unix permissions at all.
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(out)
+		if err != nil {
+			t.Fatalf("Stat: %v", err)
+		}
+		if perm := info.Mode().Perm(); perm != 0o644 {
+			t.Errorf("exported file mode = %v, want 644", perm)
+		}
 	}
 }
 

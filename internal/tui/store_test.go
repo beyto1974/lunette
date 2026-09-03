@@ -71,11 +71,10 @@ func TestFullTextFilterFetchesRecords(t *testing.T) {
 // showing an empty one.
 func TestUnreadableRecordExplainsItself(t *testing.T) {
 	m := newLoaded(t)
-	m.closeFiles()
-	// A reader over a closed file fails; the model must not pretend otherwise.
-	m.readers = nil
+	// The file the records came from is no longer there; the model must not
+	// pretend otherwise.
 	m.paths = []string{"no-such-file.mrc"}
-	m.cached, m.cachedIdx = nil, -1
+	m.forgetCached()
 
 	m.redrawDetail()
 	if got := stripANSI(m.vp.GetContent()); !strings.Contains(got, "could not") {

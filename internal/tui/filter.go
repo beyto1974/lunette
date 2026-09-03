@@ -64,17 +64,31 @@ func (m *Model) setFilter(expr string) tea.Cmd {
 //
 // This is the one thing that does read every record back, because searching
 // every subfield is what the "all:" scope means. The reads run in record
-// order, so the file is walked forwards rather than seeked around.
+// order, one open file per input, so it walks each file forwards rather than
+// opening it once per record.
 func (m *Model) buildFullKeys() {
-	for i := len(m.fullKeys); i < m.count(); i++ {
-		rec, err := m.record(i)
+	for i := len(m.fullKeys); i < m.count(); {
+		file := m.entries[i].file
+		err := m.withReader(file, func(rr *marcio.RecordReader) error {
+			for ; i < m.count() && m.entries[i].file == file; i++ {
+				rec, err := rr.At(m.entries[i].ext)
+				if err != nil {
+					// A record that cannot be read back matches nothing,
+					// rather than stopping the search on the ones that can.
+					m.fullKeys = append(m.fullKeys, "")
+					continue
+				}
+				m.fullKeys = append(m.fullKeys, marcio.FullTextKey(rec))
+			}
+			return nil
+		})
 		if err != nil {
-			// A record that cannot be read back matches nothing rather than
-			// stopping the search on the records that can.
-			m.fullKeys = append(m.fullKeys, "")
-			continue
+			// The file itself cannot be opened, so none of its records can
+			// answer a full-text search.
+			for ; i < m.count() && m.entries[i].file == file; i++ {
+				m.fullKeys = append(m.fullKeys, "")
+			}
 		}
-		m.fullKeys = append(m.fullKeys, marcio.FullTextKey(rec))
 	}
 }
 

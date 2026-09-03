@@ -71,11 +71,11 @@ func TestFollowedRecordsComeFromTheCurrentFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer m.closeFiles()
 	drainLoad(t, m)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	// Read the first record, so a descriptor is open on the original file.
+	// Read the first record, so anything the browser might hold on to the
+	// original file, it is holding.
 	if _, err := m.record(0); err != nil {
 		t.Fatalf("record 0: %v", err)
 	}
