@@ -158,16 +158,23 @@ func describe(paths []string) string {
 	return marcio.Describe(paths)
 }
 
-// load reads records from the given paths, or from stdin when the only path
-// is "-".
-func load(paths []string, stdin io.Reader) (*marcio.Result, error) {
+// streamBatch is how many records a headless walk handles between callbacks.
+// No batch is ever kept, so the size only trades call overhead against how far
+// past its last wanted record `show -n` reads before it can stop.
+const streamBatch = 64
+
+// stream walks the records in the given paths, or in stdin when the only path
+// is "-", without ever holding more than one batch of them. A 4 GB harvest
+// converts in constant memory, and `show -n 1` stops after the first record
+// instead of parsing the other million.
+func stream(paths []string, stdin io.Reader, fn func(marcio.Batch) error) (*marcio.Summary, error) {
 	if len(paths) == 1 && paths[0] == stdinName {
-		return marcio.Load(stdin)
+		return marcio.StreamReader(stdin, streamBatch, fn)
 	}
 	if slices.Contains(paths, stdinName) {
 		return nil, fmt.Errorf("standard input cannot be mixed with files")
 	}
-	return marcio.LoadFiles(paths)
+	return marcio.StreamFiles(paths, streamBatch, fn)
 }
 
 // selection is what show and export both need: the records from the given
@@ -179,17 +186,27 @@ type selection struct {
 	all               bool
 }
 
-func (sel selection) apply(paths []string, stdin io.Reader) ([]*marc.Record, *marcio.Result, error) {
-	res, err := load(paths, stdin)
-	if err != nil {
-		return nil, nil, err
-	}
+// each hands fn every record that passes the selection, one at a time, and
+// returns what the walk saw. fn returning marcio.ErrStop ends the walk without
+// reading the rest of the input.
+func (sel selection) each(paths []string, stdin io.Reader, fn func(*marc.Record) error) (*marcio.Summary, error) {
 	sc, err := searchScope(sel.scope, sel.all)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	criteria := export.Criteria{Query: sel.query, Tag: sel.tag, Scope: sc}
-	return export.Filter(res.Records, criteria), res, nil
+	match := export.Criteria{Query: sel.query, Tag: sel.tag, Scope: sc}.Matcher()
+
+	return stream(paths, stdin, func(b marcio.Batch) error {
+		for _, rec := range b.Records {
+			if !match.Everything() && !match.Match(rec) {
+				continue
+			}
+			if err := fn(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // inputs returns the file arguments, insisting on at least one.
@@ -259,29 +276,32 @@ func runShow(args []string, stdin io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	recs, _, err := selection{query: *query, tag: *tag, scope: *scope, all: *all}.apply(paths, stdin)
-	if err != nil {
-		return err
-	}
-	if *limit > 0 && *limit < len(recs) {
-		recs = recs[:*limit]
-	}
-
 	colour := useColour(*color, *noColour, isTerminal(stdout))
+	opts := render.Options{Color: colour, Width: *width, Indent: *indent}
 
 	out := bufio.NewWriter(stdout)
 	defer out.Flush()
-	for i, rec := range recs {
-		s, err := render.Render(rec, m, render.Options{Color: colour, Width: *width, Indent: *indent})
+
+	shown := 0
+	sel := selection{query: *query, tag: *tag, scope: *scope, all: *all}
+	_, err = sel.each(paths, stdin, func(rec *marc.Record) error {
+		s, err := render.Render(rec, m, opts)
 		if err != nil {
 			return err
 		}
-		if i > 0 {
+		if shown > 0 {
 			fmt.Fprintln(out)
 		}
 		fmt.Fprintln(out, s)
-	}
-	return nil
+		shown++
+		// Stopping here rather than after the walk is what makes -n cheap on a
+		// file too large to read twice.
+		if *limit > 0 && shown >= *limit {
+			return marcio.ErrStop
+		}
+		return nil
+	})
+	return err
 }
 
 func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -311,11 +331,6 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	recs, res, err := selection{query: *query, tag: *tag, scope: *scope, all: *all}.apply(paths, stdin)
-	if err != nil {
-		return err
-	}
-
 	w := stdout
 	if *outPath != "" {
 		file, err := os.Create(*outPath)
@@ -326,7 +341,17 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		w = file
 	}
 	bw := bufio.NewWriter(w)
-	if err := export.Write(bw, recs, f); err != nil {
+	writer, err := export.NewWriter(bw, f)
+	if err != nil {
+		return err
+	}
+
+	sel := selection{query: *query, tag: *tag, scope: *scope, all: *all}
+	res, err := sel.each(paths, stdin, writer.Write)
+	if err != nil {
+		return err
+	}
+	if err := writer.Close(); err != nil {
 		return err
 	}
 	if err := bw.Flush(); err != nil {
@@ -420,13 +445,14 @@ func runValidate(args []string, stdin io.Reader, stdout io.Writer) error {
 		return err
 	}
 
-	res, err := load(paths, stdin)
+	// Validation only counts, so nothing needs keeping but the failures.
+	res, err := stream(paths, stdin, func(marcio.Batch) error { return nil })
 	if err != nil {
 		return err
 	}
 
 	fmt.Fprintf(stdout, "%s: %s, %d record(s) decoded, %d failed\n",
-		describe(paths), marcio.DescribeFormat(res), len(res.Records), len(res.Issues))
+		describe(paths), marcio.DescribeSummaryFormat(res), res.Records, len(res.Issues))
 	if res.ForcedUTF8 {
 		fmt.Fprintln(stdout, "  note: records hold UTF-8 bytes but leader/09 claims MARC-8; decoded as UTF-8")
 	}

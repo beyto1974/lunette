@@ -43,49 +43,16 @@ func ParseFormat(s string) (Format, error) {
 // which matches what they now hold: by this point they have been decoded to
 // Unicode.
 func Write(w io.Writer, recs []*marc.Record, format Format) error {
+	writer, err := NewWriter(w, format)
+	if err != nil {
+		return err
+	}
 	for _, r := range recs {
-		if err := labelAsUTF8(r); err != nil {
+		if err := writer.Write(r); err != nil {
 			return err
 		}
 	}
-
-	switch format {
-	case FormatMRC:
-		writer := marc.NewWriter(w)
-		for i, r := range recs {
-			if err := writer.Write(r); err != nil {
-				return fmt.Errorf("record %d: %w", i+1, err)
-			}
-		}
-		return nil
-
-	case FormatXML:
-		writer, err := marc.NewXMLWriter(w)
-		if err != nil {
-			return err
-		}
-		for i, r := range recs {
-			if err := writer.Write(r); err != nil {
-				return fmt.Errorf("record %d: %w", i+1, err)
-			}
-		}
-		return writer.Close()
-
-	case FormatJSON:
-		writer, err := marc.NewJSONWriter(w)
-		if err != nil {
-			return err
-		}
-		for i, r := range recs {
-			if err := writer.Write(r); err != nil {
-				return fmt.Errorf("record %d: %w", i+1, err)
-			}
-		}
-		return writer.Close()
-
-	default:
-		return fmt.Errorf("unknown format %q (want mrc, xml or json)", format)
-	}
+	return writer.Close()
 }
 
 // Criteria narrows a record set. Empty criteria match everything.
@@ -110,27 +77,16 @@ func labelAsUTF8(r *marc.Record) error {
 
 // Filter keeps the records matching c, preserving their order.
 func Filter(recs []*marc.Record, c Criteria) []*marc.Record {
-	query := strings.ToLower(strings.TrimSpace(c.Query))
-	tag := strings.TrimSpace(c.Tag)
-	if query == "" && tag == "" {
+	m := c.Matcher()
+	if m.Everything() {
 		return recs
 	}
 
 	out := make([]*marc.Record, 0, len(recs))
 	for _, r := range recs {
-		if tag != "" && !marcio.HasTag(r, tag) {
-			continue
+		if m.Match(r) {
+			out = append(out, r)
 		}
-		if query != "" {
-			var full string
-			if c.Scope.NeedsFullText() {
-				full = marcio.FullTextKey(r)
-			}
-			if !c.Scope.Matches(marcio.SearchKey(r), full, query) {
-				continue
-			}
-		}
-		out = append(out, r)
 	}
 	return out
 }

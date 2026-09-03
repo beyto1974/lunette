@@ -548,3 +548,63 @@ func TestHelp(t *testing.T) {
 		}
 	}
 }
+
+// countingReader reports how much of a pipe a command consumed.
+type countingReader struct {
+	r    io.Reader
+	read int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.read += n
+	return n, err
+}
+
+// repeated is the fixture end to end, long enough that what a command reads
+// says something. Binary MARC21 concatenates, so this is a valid file, and it
+// outgrows the sniffing buffer, without which an early stop would save
+// nothing measurable.
+func repeated(t *testing.T, times int) string {
+	t.Helper()
+	one, err := os.ReadFile(sample)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	return strings.Repeat(string(one), times)
+}
+
+// `show -n 1` against a harvest of a million records must stop at the first
+// one. Reading the whole file and then throwing all but one record away is the
+// difference between an instant answer and two minutes of parsing.
+func TestShowLimitStopsReading(t *testing.T) {
+	data := repeated(t, 2000)
+	cr := &countingReader{r: strings.NewReader(data)}
+
+	out, _, err := execStdin(t, cr, "show", "-mode", "raw", "-n", "1", "-")
+	if err != nil {
+		t.Fatalf("show: %v", err)
+	}
+	if n := strings.Count(out, "=LDR"); n != 1 {
+		t.Fatalf("-n 1 returned %d records, want 1", n)
+	}
+	if cr.read >= len(data) {
+		t.Errorf("read %d of %d bytes; -n must stop reading", cr.read, len(data))
+	}
+}
+
+// Export reads a file it never holds: 6000 records in, 6000 records out, with
+// the count checked by reading the result back.
+func TestExportStreamsEveryRecord(t *testing.T) {
+	out, _, err := execStdin(t, strings.NewReader(repeated(t, 2000)), "export", "-format", "mrc", "-")
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	res, err := marcio.Load(strings.NewReader(out))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(res.Records) != 6000 {
+		t.Errorf("exported %d records, want 6000", len(res.Records))
+	}
+}
