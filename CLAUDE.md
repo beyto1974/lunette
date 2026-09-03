@@ -127,6 +127,36 @@ renders unchanged, which is how `plainPalette` works.
 - Test fixtures are committed in both encodings; regenerate `sample.mrc` from
   `sample.marcxml` with `yaz-marcdump`, never by hand.
 
+## Reading files too big to hold
+
+The harvests this reads run to gigabytes - 3.7 GB and 1.4 million records is a
+real one - so nothing loads a whole file any more. Four rules follow from that,
+and breaking any of them is what makes the tool feel broken:
+
+- **Nothing holds every record.** `show`, `export` and `validate` walk with
+  `marcio.StreamReader` / `StreamFiles` and keep one batch at a time;
+  `export.Writer` serialises as it goes. `Load` and `LoadFiles` still exist for
+  small inputs and tests. A caller that has seen enough returns `marcio.ErrStop`,
+  which is what makes `show -n 1` instant on a file of a million records.
+- **The browser keeps rows, not records.** `internal/tui/store.go`: a title, a
+  year, a search key, the field tags, and a `marcio.Extent`. The record is
+  fetched back from the file when the cursor lands on it. A decoded record is
+  several kilobytes; a row is a few hundred bytes. Adding anything to the model
+  that holds records undoes this.
+- **The list is appended to, never rebuilt, as records load.** Rebuilding is
+  O(n) and a load is thousands of batches, so rebuilding per batch is
+  quadratic. `appendItems` is for loading, `rebuildItems` for a changed filter.
+- **MARCXML is cut into blocks and decoded on every core.** `xmlblocks.go`
+  finds record boundaries by scanning - the literal text `</record>` can sit
+  inside a comment or a CDATA section, where `bytes.LastIndex` would tear a
+  record in half - and `xmlparallel.go` gives each block a decoder.
+
+That last one also carries the only way past damaged MARCXML: an
+`encoding/xml` decoder returns the same syntax error for ever once it has seen
+one, so a walk that "records the issue and continues" spins for ever. A block
+that fails is read again one record at a time, each with a fresh decoder, which
+costs the damaged record and nothing else and keeps the ordinals true.
+
 ## Following a file
 
 `-follow` watches the file's *directory*, not the file: a writer that replaces
