@@ -5,12 +5,8 @@ Near-term, actionable items for lunette. Larger feature proposals live in
 
 ## Correctness
 
-- [ ] Report the file byte offset for MARCXML records; `Issue.Offset` is `-1`
-      there because `XMLReader` does not expose the decoder's position.
 - [ ] Decode the 008 fixed field in the annotated view (dates, place, language,
       material-specific bytes 18-34). Only the leader is decoded today.
-- [ ] Handle `-n` in `show` before loading the whole file; it currently loads
-      everything and then truncates.
 - [ ] Check `Record.GetLinkedFields` behaviour on records with repeated `$6`
       occurrence numbers; the 880 pairing assumes it returns only true partners.
 
