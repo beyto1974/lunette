@@ -34,8 +34,8 @@ func TestFollowPicksUpNewRecords(t *testing.T) {
 	drainLoad(t, m)
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	if len(m.records) != 1 {
-		t.Fatalf("loaded %d records, want the 1 complete one", len(m.records))
+	if m.count() != 1 {
+		t.Fatalf("loaded %d records, want the 1 complete one", m.count())
 	}
 	if len(m.issues) != 0 {
 		t.Errorf("the half-written record was reported as damage: %v", m.issues)
@@ -50,8 +50,8 @@ func TestFollowPicksUpNewRecords(t *testing.T) {
 	}
 	m.Update(m.pollFile()())
 
-	if len(m.records) != 3 {
-		t.Errorf("after the file grew there are %d records, want 3", len(m.records))
+	if m.count() != 3 {
+		t.Errorf("after the file grew there are %d records, want 3", m.count())
 	}
 	if got := len(m.list.Items()); got != 3 {
 		t.Errorf("the list shows %d records, want 3", got)
@@ -68,12 +68,12 @@ func TestFollowIdlePoll(t *testing.T) {
 	}
 	drainLoad(t, m)
 
-	before := len(m.records)
+	before := m.count()
 	for i := 0; i < 3; i++ {
 		m.Update(m.pollFile()())
 	}
-	if len(m.records) != before {
-		t.Errorf("idle polling changed the record count from %d to %d", before, len(m.records))
+	if m.count() != before {
+		t.Errorf("idle polling changed the record count from %d to %d", before, m.count())
 	}
 	if len(m.issues) != 0 {
 		t.Errorf("idle polling produced issues: %v", m.issues)

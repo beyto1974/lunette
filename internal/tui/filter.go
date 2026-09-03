@@ -20,9 +20,11 @@ type filterSpec struct {
 
 func (f filterSpec) empty() bool { return f.query == "" && f.tag == "" }
 
-// visible reports whether one record passes the current filter.
+// visible reports whether one record passes the current filter. It is answered
+// from what was kept at load time: a filter that fetched every record back
+// would read the whole file again.
 func (m *Model) visible(i int) bool {
-	if m.filter.tag != "" && !marcio.HasTag(m.records[i], m.filter.tag) {
+	if m.filter.tag != "" && !marcio.TagsContain(m.entries[i].tags, m.filter.tag) {
 		return false
 	}
 	return m.recordMatches(i)
@@ -31,8 +33,8 @@ func (m *Model) visible(i int) bool {
 // visibleIndices reports the records currently passing the filter, as indices
 // into m.records.
 func (m *Model) visibleIndices() []int {
-	out := make([]int, 0, len(m.records))
-	for i := range m.records {
+	out := make([]int, 0, m.count())
+	for i := range m.entries {
 		if m.visible(i) {
 			out = append(out, i)
 		}
@@ -59,9 +61,20 @@ func (m *Model) setFilter(expr string) tea.Cmd {
 
 // buildFullKeys fills the full-text index for any records that do not have one
 // yet, which also covers records that arrived after the last "all:" search.
+//
+// This is the one thing that does read every record back, because searching
+// every subfield is what the "all:" scope means. The reads run in record
+// order, so the file is walked forwards rather than seeked around.
 func (m *Model) buildFullKeys() {
-	for i := len(m.fullKeys); i < len(m.records); i++ {
-		m.fullKeys = append(m.fullKeys, marcio.FullTextKey(m.records[i]))
+	for i := len(m.fullKeys); i < m.count(); i++ {
+		rec, err := m.record(i)
+		if err != nil {
+			// A record that cannot be read back matches nothing rather than
+			// stopping the search on the records that can.
+			m.fullKeys = append(m.fullKeys, "")
+			continue
+		}
+		m.fullKeys = append(m.fullKeys, marcio.FullTextKey(rec))
 	}
 }
 
@@ -114,14 +127,14 @@ func (m *Model) stepMatchingRecord(dir int) {
 // recordMatches reports whether a record matches the current search term in
 // the active scope.
 func (m *Model) recordMatches(index int) bool {
-	if index < 0 || index >= len(m.keys) {
+	if index < 0 || index >= len(m.entries) {
 		return false
 	}
 	var full string
 	if index < len(m.fullKeys) {
 		full = m.fullKeys[index]
 	}
-	return m.filter.scope.Matches(m.keys[index], full, m.filter.query)
+	return m.filter.scope.Matches(m.entries[index].key, full, m.filter.query)
 }
 
 // cycleScope moves the search to the next scope and re-runs the filter.

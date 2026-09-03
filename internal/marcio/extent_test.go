@@ -41,6 +41,32 @@ func TestExtentsLocateEveryRecord(t *testing.T) {
 	}
 }
 
+// A tag list stands in for the record when a filter asks what fields it holds.
+func TestTags(t *testing.T) {
+	res, err := LoadFile(testdata(t, "sample.mrc"))
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	for i, rec := range res.Records {
+		tags := Tags(rec)
+		for _, f := range rec.Fields {
+			if !TagsContain(tags, f.Tag) {
+				t.Errorf("record %d: tags %q do not hold %q", i+1, tags, f.Tag)
+			}
+		}
+		if TagsContain(tags, "998") {
+			t.Errorf("record %d: tags %q claim a field it does not carry", i+1, tags)
+		}
+		if TagsContain(tags, "") {
+			t.Errorf("record %d: an empty tag matched", i+1)
+		}
+		// A tag appears once however many times the record repeats it.
+		if n := strings.Count(tags, " 650 "); n > 1 {
+			t.Errorf("record %d: tags %q repeat 650 %d times", i+1, tags, n)
+		}
+	}
+}
+
 // The offsets of a binary file are the record boundaries a hex editor would
 // show, which is what an issue reports.
 func TestBinaryExtentsAreRecordBoundaries(t *testing.T) {

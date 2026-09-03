@@ -116,13 +116,13 @@ func (m *Model) buildTitleBar(path string) string {
 	meta := []string{m.format.String()}
 	switch {
 	case m.loading:
-		meta = append(meta, fmt.Sprintf("loading… %d records", len(m.records)))
+		meta = append(meta, fmt.Sprintf("loading… %d records", m.count()))
 	case m.following:
-		meta = append(meta, fmt.Sprintf("%d records · following", len(m.records)))
+		meta = append(meta, fmt.Sprintf("%d records · following", m.count()))
 	default:
-		meta = append(meta, fmt.Sprintf("%d records", len(m.records)))
+		meta = append(meta, fmt.Sprintf("%d records", m.count()))
 	}
-	if shown := len(m.list.Items()); shown != len(m.records) {
+	if shown := len(m.list.Items()); shown != m.count() {
 		meta = append(meta, fmt.Sprintf("%d shown", shown))
 	}
 	parts = append(parts, m.st.meta.Render(strings.Join(meta, " · ")))
@@ -160,7 +160,7 @@ func (m *Model) listBody() string {
 // records are showing when a filter hides some, and how far through the set
 // the cursor is.
 func (m *Model) listHeader() string {
-	total, shown := len(m.records), len(m.list.Items())
+	total, shown := m.count(), len(m.list.Items())
 	if shown == 0 {
 		if m.filter.empty() {
 			return m.st.meta.Render("no records")
@@ -220,7 +220,7 @@ func fitLines(lines []string, n int) []string {
 // fits, dropping the least useful part first. Truncating instead would cut the
 // scroll position off mid-digit on a narrow terminal.
 func (m *Model) detailHeader(it item) string {
-	position := fmt.Sprintf("record %d/%d", it.ordinal, len(m.records))
+	position := fmt.Sprintf("record %d/%d", it.ordinal, m.count())
 
 	var rest []string
 	if n := m.fieldCount(); n > 0 {

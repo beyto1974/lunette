@@ -104,8 +104,8 @@ func TestFollowFallsBackToPolling(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 	m.Update(m.pollFile()())
-	if len(m.records) != 3 {
-		t.Errorf("polling fallback loaded %d records, want 3", len(m.records))
+	if m.count() != 3 {
+		t.Errorf("polling fallback loaded %d records, want 3", m.count())
 	}
 }
 
@@ -124,8 +124,8 @@ func TestFollowReadsOnNotification(t *testing.T) {
 	if !m.watching {
 		t.Fatal("model is not watching although the watcher started")
 	}
-	if len(m.records) != 1 {
-		t.Fatalf("loaded %d records, want 1", len(m.records))
+	if m.count() != 1 {
+		t.Fatalf("loaded %d records, want 1", m.count())
 	}
 
 	if err := os.WriteFile(path, whole, 0o644); err != nil {
@@ -135,8 +135,8 @@ func TestFollowReadsOnNotification(t *testing.T) {
 
 	// The command waits for the notification and then reads.
 	m.Update(m.waitForChange()())
-	if len(m.records) != 3 {
-		t.Errorf("after the notification there are %d records, want 3", len(m.records))
+	if m.count() != 3 {
+		t.Errorf("after the notification there are %d records, want 3", m.count())
 	}
 	if fake.closed {
 		t.Error("the watcher was closed while still following")

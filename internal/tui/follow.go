@@ -60,6 +60,7 @@ func (m *Model) readFile(from trigger) tea.Cmd {
 				Format:     res.Format,
 				ForcedUTF8: res.ForcedUTF8,
 				Records:    res.Records,
+				Extents:    res.Extents,
 				Issues:     res.Issues,
 			},
 			next: next,
@@ -134,7 +135,7 @@ func (m *Model) handleFollow(msg followMsg) tea.Cmd {
 	if before == 0 {
 		m.refreshDetail()
 	}
-	m.status = fmt.Sprintf("following: %d records", len(m.records))
+	m.status = fmt.Sprintf("following: %d records", m.count())
 	return tea.Batch(cmd, m.waitForNext(msg.from))
 }
 

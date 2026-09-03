@@ -80,6 +80,34 @@ func HasTag(r *marc.Record, tag string) bool {
 	return r.Get(tag) != nil
 }
 
+// Tags lists the field tags a record carries, each surrounded by spaces, so
+// that a reader which has let the record go can still answer "does it have an
+// 856?" without fetching it back. Repeats are dropped: a record with twelve
+// 650s says 650 once.
+func Tags(r *marc.Record) string {
+	var b strings.Builder
+	b.WriteByte(' ')
+	seen := ""
+	for _, f := range r.Fields {
+		if f.Tag == seen || strings.Contains(b.String(), " "+f.Tag+" ") {
+			continue
+		}
+		b.WriteString(f.Tag)
+		b.WriteByte(' ')
+		seen = f.Tag
+	}
+	return b.String()
+}
+
+// TagsContain reports whether a tag list built by Tags holds tag.
+func TagsContain(tags, tag string) bool {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return false
+	}
+	return strings.Contains(tags, " "+tag+" ")
+}
+
 // FullTextKey is every value in the record, lowercased: control-field data and
 // all subfield values. It backs the "all:" filter, and is built on demand
 // rather than at load time because it costs roughly as much memory as the

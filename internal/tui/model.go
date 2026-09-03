@@ -3,6 +3,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -39,6 +40,10 @@ const (
 // usable after the first few hundred records while the rest still load.
 const batchSize = 256
 
+// errNoSelection is "the cursor is on nothing", as against a record that could
+// not be read: an empty pane rather than an explanation.
+var errNoSelection = errors.New("no record selected")
+
 // loadMsg carries one streamed batch, or the end of the stream.
 type loadMsg struct {
 	batch marcio.Batch
@@ -54,9 +59,21 @@ type Model struct {
 	path       string
 	format     marcio.Format
 	forcedUTF8 bool
-	records    []*marc.Record
-	keys       []string
-	issues     []marcio.Issue
+	// entries are what is kept for every record loaded; the records
+	// themselves are fetched from the file when one is wanted. See store.go.
+	entries []entry
+	issues  []marcio.Issue
+	// files and readers are opened on demand, one per path, and stay open for
+	// as long as the browser does.
+	files   []*os.File
+	readers []*marcio.RecordReader
+	// cached is the record last fetched, kept because the browser asks for the
+	// same one over and over as it redraws.
+	cached    *marc.Record
+	cachedIdx int
+	// rereads counts records fetched back from a file, which is what the
+	// store tests assert on.
+	rereads int
 
 	list  list.Model
 	vp    viewport.Model
@@ -143,17 +160,18 @@ func New(paths []string, opts ...Option) (*Model, error) {
 	in.Prompt = ""
 
 	m := &Model{
-		paths:   paths,
-		path:    paths[0],
-		list:    l,
-		vp:      viewport.New(),
-		input:   in,
-		help:    help.New(),
-		keys_:   defaultKeyMap(),
-		st:      st,
-		mode:    render.Annotated,
-		loading: true,
-		ch:      make(chan loadMsg, 8),
+		paths:     paths,
+		path:      paths[0],
+		list:      l,
+		vp:        viewport.New(),
+		input:     in,
+		help:      help.New(),
+		keys_:     defaultKeyMap(),
+		st:        st,
+		mode:      render.Annotated,
+		loading:   true,
+		cachedIdx: -1,
+		ch:        make(chan loadMsg, 8),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -176,18 +194,14 @@ func New(paths []string, opts ...Option) (*Model, error) {
 			m.ch <- loadMsg{batch: b}
 			return nil
 		})
-		// The files after the first are read whole: only the first can be
-		// followed, and streaming them separately buys nothing.
+		// The files after the first are streamed in turn; each batch says
+		// which file it came from, which is how a record is fetched back from
+		// the right one.
 		if err == nil && len(rest) > 0 {
-			var res *marcio.Result
-			if res, err = marcio.LoadFiles(rest); err == nil {
-				m.ch <- loadMsg{batch: marcio.Batch{
-					Format:     res.Format,
-					ForcedUTF8: res.ForcedUTF8,
-					Records:    res.Records,
-					Issues:     res.Issues,
-				}}
-			}
+			_, err = marcio.StreamFiles(rest, batchSize, func(b marcio.Batch) error {
+				m.ch <- loadMsg{batch: b}
+				return nil
+			})
 		}
 		m.ch <- loadMsg{err: err, done: true}
 	}()
@@ -217,6 +231,7 @@ func Run(paths []string, opts ...Option) error {
 	if err != nil {
 		return err
 	}
+	defer m.closeFiles()
 	_, err = tea.NewProgram(m).Run()
 	return err
 }
@@ -230,18 +245,18 @@ func waitFor(ch chan loadMsg) tea.Cmd {
 	return func() tea.Msg { return <-ch }
 }
 
-// row builds one list row. Everything shown is computed here, once per record,
-// which is why the list is appended to rather than rebuilt as records arrive.
+// row builds one list row from what was kept for the record. Everything it
+// shows was worked out when the record arrived, which is why the list is
+// appended to rather than rebuilt as records load.
 func (m *Model) row(idx int) item {
 	m.rowsBuilt++
-	rec := m.records[idx]
+	e := m.entries[idx]
 	return item{
 		ordinal: idx + 1,
 		index:   idx,
-		// Record text on its way to the terminal: see render.Sanitize.
-		title: render.Sanitize(marcio.Title(rec)),
-		year:  render.Sanitize(marcio.Year(rec)),
-		key:   m.keys[idx],
+		title:   e.title,
+		year:    e.year,
+		key:     e.key,
 	}
 }
 
@@ -265,7 +280,7 @@ func (m *Model) rebuildItems() tea.Cmd {
 // harvest would build the best part of a billion rows on the way in, which
 // looks exactly like a hang.
 func (m *Model) appendItems(from int) tea.Cmd {
-	for idx := from; idx < len(m.records); idx++ {
+	for idx := from; idx < m.count(); idx++ {
 		if !m.visible(idx) {
 			continue
 		}
@@ -274,13 +289,28 @@ func (m *Model) appendItems(from int) tea.Cmd {
 	return m.list.SetItems(m.items)
 }
 
-// current returns the record under the cursor.
+// current returns the record under the cursor, fetching it from the file it
+// came from.
 func (m *Model) current() (*marc.Record, item, bool) {
-	it, ok := m.list.SelectedItem().(item)
-	if !ok || it.index >= len(m.records) {
+	rec, it, err := m.currentRecord()
+	if err != nil {
 		return nil, item{}, false
 	}
-	return m.records[it.index], it, true
+	return rec, it, true
+}
+
+// currentRecord is current with the reason it failed, which the record pane
+// shows rather than drawing a blank.
+func (m *Model) currentRecord() (*marc.Record, item, error) {
+	it, ok := m.list.SelectedItem().(item)
+	if !ok || it.index >= m.count() {
+		return nil, item{}, errNoSelection
+	}
+	rec, err := m.record(it.index)
+	if err != nil {
+		return nil, it, err
+	}
+	return rec, it, nil
 }
 
 // refreshDetail re-renders the right pane for the current selection and puts
@@ -313,9 +343,14 @@ func (m *Model) reflowDetail() {
 // redrawDetail re-renders the record with the current field cursor marked,
 // leaving the scroll position alone.
 func (m *Model) redrawDetail() {
-	rec, _, ok := m.current()
-	if !ok {
+	rec, _, err := m.currentRecord()
+	if errors.Is(err, errNoSelection) {
 		m.vp.SetContent("")
+		m.fields = nil
+		return
+	}
+	if err != nil {
+		m.vp.SetContent("this record could not be read back: " + err.Error())
 		m.fields = nil
 		return
 	}
