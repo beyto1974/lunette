@@ -116,18 +116,109 @@ func AnalyzeEncodingFile(path string) (*EncodingReport, error) {
 // analyzeXML counts records and non-ASCII content. A MARCXML document declares
 // its own encoding, so there is no leader to reconcile.
 func analyzeXML(r io.Reader, rep *EncodingReport) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return err
+	return analyzeXMLChunked(r, rep, reportChunk)
+}
+
+// reportChunk is how much of a document the report holds at once. It used to
+// hold all of it, which on the harvests this reads is several gigabytes to
+// answer a question about the bytes.
+const reportChunk = 1 << 20
+
+// recordMarker is what a record is counted by. It is the raw text rather than
+// a parse: the report is about bytes that a decoder would reject or mangle, so
+// it must not depend on one.
+var recordMarker = []byte("<record")
+
+// analyzeXMLChunked reads the document a chunk at a time, carrying enough of
+// each chunk into the next that nothing is missed or counted twice: a marker
+// or a character split across a boundary belongs to both halves.
+func analyzeXMLChunked(r io.Reader, rep *EncodingReport, chunk int) error {
+	if chunk < 1 {
+		chunk = 1
 	}
-	rep.Records = bytes.Count(data, []byte("<record"))
-	if !isASCII(data) {
+	var carry []byte
+	nonASCII, invalid := false, false
+
+	buf := make([]byte, chunk)
+	for {
+		n, err := io.ReadFull(r, buf)
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			return err
+		}
+		done := n < chunk
+		window := append(carry, buf[:n]...)
+
+		// A marker starting inside the carry and ending inside it was counted
+		// last time round; one that reaches into the new bytes was not.
+		from := len(carry) - len(recordMarker) + 1
+		if from < 0 {
+			from = 0
+		}
+		rep.Records += bytes.Count(window[from:], recordMarker)
+
+		// Validity is checked up to the last whole character, since a
+		// character cut in half is not evidence of anything.
+		cut := len(window)
+		if !done {
+			cut = wholeRunePrefix(window)
+		}
+		if !isASCII(window[:cut]) {
+			nonASCII = true
+			if !utf8.Valid(window[:cut]) {
+				invalid = true
+			}
+		}
+
+		if done {
+			break
+		}
+		// Carry enough for a marker to straddle the boundary and for the
+		// character the cut left unfinished, and begin the carry on a
+		// character boundary: a carry starting mid-character would make the
+		// next chunk look like invalid UTF-8. Re-reading a few bytes costs
+		// nothing, since both questions are asked of the whole document.
+		keep := len(recordMarker) - 1
+		if tail := len(window) - cut; tail > keep {
+			keep = tail
+		}
+		start := len(window) - keep
+		if start < 0 {
+			start = 0
+		}
+		carry = append([]byte(nil), window[runeStart(window, start):]...)
+	}
+
+	if nonASCII {
 		rep.WithNonASCII = 1 // per document, not per record
-		if !utf8.Valid(data) {
+		if invalid {
 			rep.InvalidUTF8 = 1
 		}
 	}
 	return nil
+}
+
+// runeStart moves an index back to the start of the character it lands in.
+func runeStart(buf []byte, i int) int {
+	for n := 0; i > 0 && n < utf8.UTFMax-1; n++ {
+		if buf[i]&0xC0 != 0x80 { // not a continuation byte
+			return i
+		}
+		i--
+	}
+	return i
+}
+
+// wholeRunePrefix returns the length of buf up to the last complete UTF-8
+// character, so that a character split by a chunk boundary is judged once, on
+// the side that holds all of it.
+func wholeRunePrefix(buf []byte) int {
+	for i := 0; i < utf8.UTFMax && i < len(buf); i++ {
+		cut := len(buf) - i
+		if r, size := utf8.DecodeLastRune(buf[:cut]); r != utf8.RuneError || size > 1 {
+			return cut
+		}
+	}
+	return len(buf)
 }
 
 // analyzeBinary walks the transmission format by record length, which needs no
