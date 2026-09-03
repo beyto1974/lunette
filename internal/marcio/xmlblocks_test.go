@@ -66,6 +66,15 @@ func TestRecordSpans(t *testing.T) {
 		{"bracket inside an attribute", `<record note="a>b">c</record>`, []string{`<record note="a>b">c</record>`}},
 		{"truncated", "<record>a</record><record>b", []string{"<record>a</record>", "<record>b"}},
 		{"none", "<collection></collection>", nil},
+
+		// A record with no closing tag is the commonest damage a harvest
+		// arrives with. It must end where the next record starts, or it
+		// swallows that record and the ordinals after it all shift.
+		{
+			"unterminated in the middle",
+			"<record>a</record><record>b<record>c</record>",
+			[]string{"<record>a</record>", "<record>b", "<record>c</record>"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

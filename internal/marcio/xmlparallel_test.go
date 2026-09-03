@@ -119,6 +119,46 @@ func TestDamageIsConfinedToItsBlock(t *testing.T) {
 	}
 }
 
+// A record that was never closed - a harvest interrupted, a repository that
+// writes a record in pieces - costs itself and nothing else. Taking the next
+// record's closing tag as its own would swallow that record silently, which is
+// the one thing this must not do.
+func TestUnterminatedRecordKeepsItsNeighbours(t *testing.T) {
+	const doc = `<collection>
+<record><leader>     nam  22        4500</leader><datafield tag="245" ind1="1" ind2="0"><subfield code="a">One</subfield></datafield></record>
+<record><leader>     nam  22        4500</leader><datafield tag="245" ind1="1" ind2="0"><subfield code="a">Two</subfield></datafield>
+<record><leader>     nam  22        4500</leader><datafield tag="245" ind1="1" ind2="0"><subfield code="a">Three</subfield></datafield></record>
+<record><leader>     nam  22        4500</leader><datafield tag="245" ind1="1" ind2="0"><subfield code="a">Four</subfield></datafield></record>
+</collection>`
+
+	res, err := Load(strings.NewReader(doc))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	var titles []string
+	for _, rec := range res.Records {
+		titles = append(titles, Title(rec))
+	}
+	want := []string{"One", "Three", "Four"}
+	if len(titles) != len(want) {
+		t.Fatalf("decoded %q, want %q", titles, want)
+	}
+	for i := range want {
+		if titles[i] != want[i] {
+			t.Errorf("record %d = %q, want %q", i+1, titles[i], want[i])
+		}
+	}
+	if len(res.Issues) != 1 {
+		t.Fatalf("got %d issues, want 1: %v", len(res.Issues), res.Issues)
+	}
+	// The unterminated record is the second in the file, and the records after
+	// it keep their own numbers.
+	if res.Issues[0].Ordinal != 2 {
+		t.Errorf("issue ordinal = %d, want 2", res.Issues[0].Ordinal)
+	}
+}
+
 // A comment or a CDATA section can hold the literal text </record>, which
 // closes nothing. Cutting there would split a record in half.
 func TestParallelXMLWithHiddenEndTags(t *testing.T) {
