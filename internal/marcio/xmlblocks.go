@@ -142,6 +142,30 @@ func localName(name []byte) string {
 	return string(name)
 }
 
+// span is a record's place inside a block.
+type span struct{ start, end int }
+
+// recordSpans cuts a block into its <record> elements. What sits between them
+// belongs to no record; a record the block stops in the middle of is kept, so
+// that it is reported rather than lost.
+func recordSpans(block []byte) []span {
+	var out []span
+	for at := 0; at < len(block); {
+		start := firstRecordStart(block[at:])
+		if start < 0 {
+			return out
+		}
+		at += start
+		end := firstRecordEnd(block[at:])
+		if end <= 0 {
+			return append(out, span{at, len(block)})
+		}
+		out = append(out, span{at, at + end})
+		at += end
+	}
+	return out
+}
+
 // blockReader cuts a MARCXML stream into blocks of whole records. Each block
 // starts at a <record> and ends after a </record>, so it decodes on its own;
 // the last one may hold a record the harvest was cut off in the middle of,
@@ -150,6 +174,9 @@ type blockReader struct {
 	r       io.Reader
 	size    int
 	pending []byte
+	// pos is where pending[0] sits in the input. It is what gives a MARCXML
+	// record an offset, in a format whose decoder reports none.
+	pos     int64
 	started bool
 	eof     bool
 	spent   bool
@@ -162,44 +189,48 @@ func newBlockReader(r io.Reader, size int) *blockReader {
 	return &blockReader{r: r, size: size}
 }
 
-// next returns the next block, or io.EOF once the input is spent.
-func (b *blockReader) next() ([]byte, error) {
+// next returns the next block and where it starts in the input, or io.EOF once
+// the input is spent.
+func (b *blockReader) next() ([]byte, int64, error) {
 	if b.spent {
-		return nil, io.EOF
+		return nil, 0, io.EOF
 	}
 	if !b.started {
 		if err := b.skipPrologue(); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
 	for {
 		if err := b.fill(b.size); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if end := lastRecordEnd(b.pending); end > 0 {
-			block := b.pending[:end]
+			block, at := b.pending[:end], b.pos
 			// The newline that follows a record belongs to no record; leaving
 			// it on the front of the next block would only make "starts at a
 			// record" untrue.
-			b.pending = bytes.TrimLeft(b.pending[end:], " \t\r\n")
-			return block, nil
+			rest := bytes.TrimLeft(b.pending[end:], " \t\r\n")
+			b.pos += int64(len(b.pending) - len(rest))
+			b.pending = rest
+			return block, at, nil
 		}
 		if b.eof {
 			// What is left is either a record the file stops in the middle of
 			// or the closing tag of the collection. The first has to reach a
 			// decoder; the second belongs to nothing.
-			tail := b.pending
+			tail, at := b.pending, b.pos
+			b.pos += int64(len(tail))
 			b.pending, b.spent = nil, true
 			if firstRecordStart(tail) < 0 {
-				return nil, io.EOF
+				return nil, 0, io.EOF
 			}
-			return tail, nil
+			return tail, at, nil
 		}
 		// No record ended within a block's worth of input: a single record
 		// larger than the block size. Keep reading until one does.
 		if err := b.fill(len(b.pending) + b.size); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 }
@@ -212,6 +243,7 @@ func (b *blockReader) skipPrologue() error {
 		}
 		if i := firstRecordStart(b.pending); i >= 0 {
 			b.pending = b.pending[i:]
+			b.pos += int64(i)
 			b.started = true
 			return nil
 		}
