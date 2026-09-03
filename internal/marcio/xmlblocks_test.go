@@ -76,7 +76,7 @@ func TestBlocksHoldEveryRecord(t *testing.T) {
 	br := newBlockReader(strings.NewReader(in), 256)
 	got, blocks := 0, 0
 	for {
-		block, err := br.next()
+		block, _, err := br.next()
 		if len(block) > 0 {
 			blocks++
 			got += strings.Count(string(block), "<record>")
@@ -104,7 +104,7 @@ func TestBlocksKeepATruncatedTail(t *testing.T) {
 	br := newBlockReader(strings.NewReader(in), 8)
 	var blocks []string
 	for {
-		block, err := br.next()
+		block, _, err := br.next()
 		if len(block) > 0 {
 			blocks = append(blocks, string(block))
 		}
@@ -125,7 +125,7 @@ func TestBlocksDropTheTrailingWrapper(t *testing.T) {
 	br := newBlockReader(strings.NewReader(in), 8)
 	var blocks []string
 	for {
-		block, err := br.next()
+		block, _, err := br.next()
 		if len(block) > 0 {
 			blocks = append(blocks, string(block))
 		}

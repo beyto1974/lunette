@@ -40,7 +40,7 @@ func LoadFiles(paths []string) (*Result, error) {
 		}
 
 		combined.Records = append(combined.Records, res.Records...)
-		combined.Offsets = append(combined.Offsets, res.Offsets...)
+		combined.Extents = append(combined.Extents, res.Extents...)
 	}
 	return combined, nil
 }

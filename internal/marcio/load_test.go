@@ -226,15 +226,18 @@ func TestOffsetsAdvance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFile: %v", err)
 	}
-	if len(res.Offsets) != len(res.Records) {
-		t.Fatalf("got %d offsets for %d records", len(res.Offsets), len(res.Records))
+	if len(res.Extents) != len(res.Records) {
+		t.Fatalf("got %d extents for %d records", len(res.Extents), len(res.Records))
 	}
-	if res.Offsets[0] != 0 {
-		t.Errorf("first offset = %d, want 0", res.Offsets[0])
+	if res.Extents[0].Offset != 0 {
+		t.Errorf("first offset = %d, want 0", res.Extents[0].Offset)
 	}
 	// Record lengths come from the leader: 297, 209, 157.
-	if res.Offsets[1] != 297 || res.Offsets[2] != 297+209 {
-		t.Errorf("offsets = %v, want [0 297 506]", res.Offsets)
+	want := []Extent{{0, 297}, {297, 209}, {297 + 209, 157}}
+	for i, e := range res.Extents {
+		if e != want[i] {
+			t.Errorf("extent %d = %+v, want %+v", i, e, want[i])
+		}
 	}
 }
 

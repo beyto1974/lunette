@@ -42,9 +42,20 @@ func declaresMARC8(peek []byte) bool {
 	return peek[codingScheme] != 'a'
 }
 
-// offsetUnknown marks records whose byte offset cannot be determined, which is
-// the case for every MARCXML record.
+// offsetUnknown marks a record whose place in the file could not be worked
+// out, which is what an unrecoverably damaged block leaves behind.
 const offsetUnknown int64 = -1
+
+// Extent is where a record sits in the file it came from. It is what lets a
+// reader come back for one record - see RecordReader - instead of keeping
+// every record it has ever decoded.
+type Extent struct {
+	Offset int64
+	Length int64
+}
+
+// Known reports whether the extent can be read back.
+func (e Extent) Known() bool { return e.Offset >= 0 && e.Length > 0 }
 
 // Issue is a record that failed to decode. Ordinal counts every record
 // attempted, so it stays aligned with the record numbering a user sees in a
@@ -76,8 +87,10 @@ type Batch struct {
 	// claiming MARC-8, and were decoded as UTF-8 anyway.
 	ForcedUTF8 bool
 	Records    []*marc.Record
-	Offsets    []int64
+	Extents    []Extent
 	Issues     []Issue
+	// Source names the file the batch came from, when the walk was told one.
+	Source string
 }
 
 // Result is a complete load of a file, or of several read as one set.
@@ -87,7 +100,7 @@ type Result struct {
 	MixedFormats bool
 	ForcedUTF8   bool
 	Records      []*marc.Record
-	Offsets      []int64
+	Extents      []Extent
 	Issues       []Issue
 }
 
@@ -113,24 +126,41 @@ func DetectFormat(peek []byte) Format {
 // source is the common shape of gomarc's binary and XML readers.
 type source interface {
 	next() (*marc.Record, error)
-	// size reports the byte length of the record just attempted, or
-	// offsetUnknown when the source cannot tell.
-	size() int64
+	// extent reports where the record just attempted sits in the file.
+	extent() Extent
 	// close releases whatever the source is holding. A source that decodes on
 	// other goroutines needs telling that a walk has ended early.
 	close()
 }
 
-type binarySource struct{ rd *marc.Reader }
+// binarySource keeps its own running position, since a binary record's place
+// in the file is simply the sum of the lengths before it.
+type binarySource struct {
+	rd  *marc.Reader
+	pos int64
+	ext Extent
+}
 
-func (b binarySource) next() (*marc.Record, error) { return b.rd.Next() }
-func (b binarySource) size() int64                 { return int64(len(b.rd.CurrentChunk())) }
-func (b binarySource) close()                      {}
+func (b *binarySource) next() (*marc.Record, error) {
+	rec, err := b.rd.Next()
+	size := int64(len(b.rd.CurrentChunk()))
+	b.ext = Extent{Offset: b.pos, Length: size}
+	if size > 0 {
+		b.pos += size
+	}
+	return rec, err
+}
 
+func (b *binarySource) extent() Extent { return b.ext }
+func (b *binarySource) close()         {}
+
+// xmlSource is one encoding/xml decoder over a stretch of MARCXML. It is what
+// a block decoder uses; where the records sit is worked out by the splitter
+// that cut the block, not by the decoder.
 type xmlSource struct{ rd *marc.XMLReader }
 
 func (x xmlSource) next() (*marc.Record, error) { return x.rd.Next() }
-func (x xmlSource) size() int64                 { return offsetUnknown }
+func (x xmlSource) extent() Extent              { return Extent{Offset: offsetUnknown} }
 func (x xmlSource) close()                      {}
 
 // newSource sniffs the format and encoding and returns a reader for them.
@@ -153,7 +183,7 @@ func newSource(r io.Reader) (src source, format Format, forcedUTF8 bool, err err
 		if forcedUTF8 {
 			opts = append(opts, marc.WithForceUTF8(true))
 		}
-		return binarySource{rd: marc.NewReader(br, opts...)}, format, forcedUTF8, nil
+		return &binarySource{rd: marc.NewReader(br, opts...)}, format, forcedUTF8, nil
 
 	case FormatXML:
 		// MARCXML goes through the block splitter whatever the core count:
@@ -221,8 +251,7 @@ func walk(r io.Reader, batchSize int, opts walkOpts, fn func(Batch) error) (walk
 	defer src.close()
 	res := walkResult{format: format, forcedUTF8: forcedUTF8}
 
-	batch := Batch{Format: format, ForcedUTF8: forcedUTF8}
-	var offset int64
+	batch := Batch{Format: format, ForcedUTF8: forcedUTF8, Source: opts.source}
 	ordinal := opts.base
 
 	flush := func() error {
@@ -232,33 +261,27 @@ func walk(r io.Reader, batchSize int, opts walkOpts, fn func(Batch) error) (walk
 		if err := fn(batch); err != nil {
 			return err
 		}
-		batch = Batch{Format: format, ForcedUTF8: forcedUTF8}
+		batch = Batch{Format: format, ForcedUTF8: forcedUTF8, Source: opts.source}
 		return nil
 	}
 
 	for {
 		ordinal++
-		start := offset
 		rec, err := safeNext(src)
-		if size := src.size(); size > 0 {
-			offset += size
-		}
+		ext := src.extent()
 		if errors.Is(err, io.EOF) || (err == nil && rec == nil) {
 			break
 		}
 		if err != nil {
-			batch.Issues = append(batch.Issues, Issue{Ordinal: ordinal, Offset: start, Err: err, Source: opts.source})
+			batch.Issues = append(batch.Issues, Issue{Ordinal: ordinal, Offset: ext.Offset, Err: err, Source: opts.source})
 			if errors.Is(err, errPanicked) || errors.Is(err, errFatal) {
 				break
 			}
 			continue
 		}
-		if src.size() == offsetUnknown {
-			start = offsetUnknown
-		}
 		res.decoded++
 		batch.Records = append(batch.Records, rec)
-		batch.Offsets = append(batch.Offsets, start)
+		batch.Extents = append(batch.Extents, ext)
 		if len(batch.Records) >= batchSize {
 			if err := flush(); err != nil {
 				return stopOrFail(res, err)
@@ -287,7 +310,7 @@ func Load(r io.Reader) (*Result, error) {
 		res.Format = b.Format
 		res.ForcedUTF8 = b.ForcedUTF8
 		res.Records = append(res.Records, b.Records...)
-		res.Offsets = append(res.Offsets, b.Offsets...)
+		res.Extents = append(res.Extents, b.Extents...)
 		res.Issues = append(res.Issues, b.Issues...)
 		return nil
 	})
