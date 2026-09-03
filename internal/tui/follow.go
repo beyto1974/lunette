@@ -129,9 +129,8 @@ func (m *Model) handleFollow(msg followMsg) tea.Cmd {
 		return m.waitForNext(msg.from)
 	}
 
-	before := len(m.records)
-	m.appendBatch(msg.batch)
-	cmd := m.rebuildItems()
+	before := m.appendBatch(msg.batch)
+	cmd := m.appendItems(before)
 	if before == 0 {
 		m.refreshDetail()
 	}

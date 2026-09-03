@@ -48,8 +48,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // appendBatch adds a batch of records, their search keys and any issues, and
-// advances the follow offset past the records it consumed.
-func (m *Model) appendBatch(b marcio.Batch) {
+// returns the index the new records start at, so the rows for them can be
+// appended rather than the whole list rebuilt.
+func (m *Model) appendBatch(b marcio.Batch) int {
+	from := len(m.records)
 	// A batch carrying no records - the final one - reports no format either,
 	// so keep what earlier batches said.
 	if b.Format != marcio.FormatUnknown {
@@ -64,16 +66,17 @@ func (m *Model) appendBatch(b marcio.Batch) {
 	if m.filter.scope.NeedsFullText() {
 		m.buildFullKeys()
 	}
+	return from
 }
 
 // handleLoad folds one streamed batch into the model.
 func (m *Model) handleLoad(msg loadMsg) tea.Cmd {
-	m.appendBatch(msg.batch)
+	from := m.appendBatch(msg.batch)
 
 	if msg.done {
 		m.loading = false
 		m.loadErr = msg.err
-		cmd := m.rebuildItems()
+		cmd := m.appendItems(from)
 		m.refreshDetail()
 		if m.following {
 			return tea.Batch(cmd, m.startFollowing())
@@ -81,8 +84,8 @@ func (m *Model) handleLoad(msg loadMsg) tea.Cmd {
 		return cmd
 	}
 
-	first := len(m.records) == len(msg.batch.Records)
-	cmd := m.rebuildItems()
+	first := from == 0
+	cmd := m.appendItems(from)
 	if first {
 		m.refreshDetail()
 	}

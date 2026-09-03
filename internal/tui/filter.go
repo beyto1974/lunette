@@ -20,18 +20,22 @@ type filterSpec struct {
 
 func (f filterSpec) empty() bool { return f.query == "" && f.tag == "" }
 
+// visible reports whether one record passes the current filter.
+func (m *Model) visible(i int) bool {
+	if m.filter.tag != "" && !marcio.HasTag(m.records[i], m.filter.tag) {
+		return false
+	}
+	return m.recordMatches(i)
+}
+
 // visibleIndices reports the records currently passing the filter, as indices
 // into m.records.
 func (m *Model) visibleIndices() []int {
 	out := make([]int, 0, len(m.records))
-	for i, rec := range m.records {
-		if m.filter.tag != "" && !marcio.HasTag(rec, m.filter.tag) {
-			continue
+	for i := range m.records {
+		if m.visible(i) {
+			out = append(out, i)
 		}
-		if !m.recordMatches(i) {
-			continue
-		}
-		out = append(out, i)
 	}
 	return out
 }
