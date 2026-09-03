@@ -593,6 +593,68 @@ func TestShowLimitStopsReading(t *testing.T) {
 	}
 }
 
+// An export writes as it reads, so it must not write into the destination
+// until it has something whole to put there. A failure partway used to leave
+// the target truncated to whatever had been converted before it - and the
+// target was destroyed before a byte of input had been read.
+func TestFailedExportLeavesTheTargetAlone(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "existing.json")
+	const previous = "the file that was already there\n"
+	if err := os.WriteFile(out, []byte(previous), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// The second input does not exist, so the walk fails after the first file
+	// has been converted.
+	_, _, err := exec(t, "export", "-format", "json", "-o", out, "-force", sample, filepath.Join(dir, "missing.mrc"))
+	if err == nil {
+		t.Fatal("export accepted a missing input file")
+	}
+
+	got, readErr := os.ReadFile(out)
+	if readErr != nil {
+		t.Fatalf("ReadFile: %v", readErr)
+	}
+	if string(got) != previous {
+		t.Errorf("the target was overwritten by a failed export:\n%q", got)
+	}
+	// Only the target should be there: no half-written temporary left behind.
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("a failed export left files behind: %v", names)
+	}
+}
+
+// A successful export writes a whole document to the named file.
+func TestExportWritesTheWholeDocument(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "out.json")
+	if _, _, err := exec(t, "export", "-format", "json", "-o", out, sample); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	var v []any
+	if err := json.Unmarshal(data, &v); err != nil {
+		t.Fatalf("the exported file is not valid JSON: %v", err)
+	}
+	if len(v) != 3 {
+		t.Errorf("exported %d records, want 3", len(v))
+	}
+	info, err := os.Stat(out)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o644 {
+		t.Errorf("exported file mode = %v, want 644", perm)
+	}
+}
+
 // Export reads a file it never holds: 6000 records in, 6000 records out, with
 // the count checked by reading the result back.
 func TestExportStreamsEveryRecord(t *testing.T) {
