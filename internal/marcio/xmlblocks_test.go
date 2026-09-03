@@ -29,6 +29,12 @@ func TestLastRecordEnd(t *testing.T) {
 		{"cdata", "<record><subfield><![CDATA[</record>]]></subfield></record>", "<record><subfield><![CDATA[</record>]]></subfield></record>"},
 		{"cdata unclosed", "<record><![CDATA[</record>", ""},
 		{"cdata then a real end", "<record><![CDATA[</record>]]>x</record><record>b", "<record><![CDATA[</record>]]>x</record>"},
+
+		// A record that closes itself ends where it starts; a document of
+		// nothing else would otherwise never offer a place to cut.
+		{"self-closing", "<record/><record>b", "<record/>"},
+		{"self-closing last", "<record>a</record><record/>", "<record>a</record><record/>"},
+		{"a start tag is not an end", "<record>a", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -39,6 +45,42 @@ func TestLastRecordEnd(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("lastRecordEnd(%q) cut %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// A record has to be told from the record after it even when it closes itself,
+// or the spans and the records they belong to would drift apart and a reader
+// would fetch back the wrong one.
+func TestRecordSpans(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"two", "<record>a</record><record>b</record>", []string{"<record>a</record>", "<record>b</record>"}},
+		{"whitespace between", "<record>a</record>\n  <record>b</record>", []string{"<record>a</record>", "<record>b</record>"}},
+		{"self-closing", "<record/><record>b</record>", []string{"<record/>", "<record>b</record>"}},
+		{"self-closing with attributes", `<record xmlns="x"/><record>b</record>`, []string{`<record xmlns="x"/>`, "<record>b</record>"}},
+		{"bracket inside an attribute", `<record note="a>b">c</record>`, []string{`<record note="a>b">c</record>`}},
+		{"truncated", "<record>a</record><record>b", []string{"<record>a</record>", "<record>b"}},
+		{"none", "<collection></collection>", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spans := recordSpans([]byte(tt.in))
+			var got []string
+			for _, sp := range spans {
+				got = append(got, tt.in[sp.start:sp.end])
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("recordSpans(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("span %d = %q, want %q", i, got[i], tt.want[i])
+				}
 			}
 		})
 	}
