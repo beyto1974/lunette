@@ -116,17 +116,22 @@ type source interface {
 	// size reports the byte length of the record just attempted, or
 	// offsetUnknown when the source cannot tell.
 	size() int64
+	// close releases whatever the source is holding. A source that decodes on
+	// other goroutines needs telling that a walk has ended early.
+	close()
 }
 
 type binarySource struct{ rd *marc.Reader }
 
 func (b binarySource) next() (*marc.Record, error) { return b.rd.Next() }
 func (b binarySource) size() int64                 { return int64(len(b.rd.CurrentChunk())) }
+func (b binarySource) close()                      {}
 
 type xmlSource struct{ rd *marc.XMLReader }
 
 func (x xmlSource) next() (*marc.Record, error) { return x.rd.Next() }
 func (x xmlSource) size() int64                 { return offsetUnknown }
+func (x xmlSource) close()                      {}
 
 // newSource sniffs the format and encoding and returns a reader for them.
 // forcedUTF8 reports that the file's bytes were trusted over its leaders.
@@ -151,7 +156,10 @@ func newSource(r io.Reader) (src source, format Format, forcedUTF8 bool, err err
 		return binarySource{rd: marc.NewReader(br, opts...)}, format, forcedUTF8, nil
 
 	case FormatXML:
-		return xmlSource{rd: marc.NewXMLReader(br)}, format, false, nil
+		// MARCXML goes through the block splitter whatever the core count:
+		// it is what lets a decoder start again after damage, which a single
+		// encoding/xml decoder cannot do.
+		return newParallelXML(br, xmlWorkers(), xmlBlockSize), format, false, nil
 
 	default:
 		return nil, FormatUnknown, false, fmt.Errorf("unrecognised format: not binary MARC21 or MARCXML")
@@ -210,6 +218,7 @@ func walk(r io.Reader, batchSize int, opts walkOpts, fn func(Batch) error) (walk
 	if err != nil {
 		return walkResult{}, err
 	}
+	defer src.close()
 	res := walkResult{format: format, forcedUTF8: forcedUTF8}
 
 	batch := Batch{Format: format, ForcedUTF8: forcedUTF8}
@@ -239,7 +248,7 @@ func walk(r io.Reader, batchSize int, opts walkOpts, fn func(Batch) error) (walk
 		}
 		if err != nil {
 			batch.Issues = append(batch.Issues, Issue{Ordinal: ordinal, Offset: start, Err: err, Source: opts.source})
-			if errors.Is(err, errPanicked) {
+			if errors.Is(err, errPanicked) || errors.Is(err, errFatal) {
 				break
 			}
 			continue
