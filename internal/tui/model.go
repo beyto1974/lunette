@@ -72,6 +72,13 @@ type Model struct {
 	// fullKeys backs the "all:" filter and is built on first use, since it
 	// roughly doubles the memory the records occupy.
 	fullKeys []string
+	// items are the list rows, kept here so that records arriving during a
+	// load can be appended rather than sending the list a fresh slice built
+	// from every record so far.
+	items []list.Item
+	// rowsBuilt counts the rows ever built, which is what the load tests
+	// assert on: one per record, not one per record per batch.
+	rowsBuilt int
 	// matchLines are the lines of the rendered record holding a filter match,
 	// and matchIdx is the one the viewport is parked on.
 	matchLines []int
@@ -223,22 +230,48 @@ func waitFor(ch chan loadMsg) tea.Cmd {
 	return func() tea.Msg { return <-ch }
 }
 
-// rebuildItems refreshes the list from the current records and filter.
+// row builds one list row. Everything shown is computed here, once per record,
+// which is why the list is appended to rather than rebuilt as records arrive.
+func (m *Model) row(idx int) item {
+	m.rowsBuilt++
+	rec := m.records[idx]
+	return item{
+		ordinal: idx + 1,
+		index:   idx,
+		// Record text on its way to the terminal: see render.Sanitize.
+		title: render.Sanitize(marcio.Title(rec)),
+		year:  render.Sanitize(marcio.Year(rec)),
+		key:   m.keys[idx],
+	}
+}
+
+// rebuildItems refreshes the list from the current records and filter. It is
+// for changes that can move any row - a new filter, a new scope - and costs a
+// pass over every record, so loading does not use it.
 func (m *Model) rebuildItems() tea.Cmd {
 	indices := m.visibleIndices()
-	items := make([]list.Item, len(indices))
+	m.items = make([]list.Item, len(indices))
 	for pos, idx := range indices {
-		rec := m.records[idx]
-		items[pos] = item{
-			ordinal: idx + 1,
-			index:   idx,
-			// Record text on its way to the terminal: see render.Sanitize.
-			title: render.Sanitize(marcio.Title(rec)),
-			year:  render.Sanitize(marcio.Year(rec)),
-			key:   m.keys[idx],
-		}
+		m.items[pos] = m.row(idx)
 	}
-	return m.list.SetItems(items)
+	return m.list.SetItems(m.items)
+}
+
+// appendItems adds the rows for records[from:] that pass the current filter,
+// leaving the rows already built alone.
+//
+// Rebuilding the whole list on every batch is quadratic, and the files this
+// browser exists for arrive in thousands of batches: a 1.1 million record
+// harvest would build the best part of a billion rows on the way in, which
+// looks exactly like a hang.
+func (m *Model) appendItems(from int) tea.Cmd {
+	for idx := from; idx < len(m.records); idx++ {
+		if !m.visible(idx) {
+			continue
+		}
+		m.items = append(m.items, m.row(idx))
+	}
+	return m.list.SetItems(m.items)
 }
 
 // current returns the record under the cursor.
