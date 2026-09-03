@@ -331,17 +331,13 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	w := stdout
-	if *outPath != "" {
-		file, err := os.Create(*outPath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		w = file
+	out, err := newOutput(*outPath, stdout)
+	if err != nil {
+		return err
 	}
-	bw := bufio.NewWriter(w)
-	writer, err := export.NewWriter(bw, f)
+	defer out.abandon()
+
+	writer, err := export.NewWriter(out.w, f)
 	if err != nil {
 		return err
 	}
@@ -354,7 +350,7 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if err := writer.Close(); err != nil {
 		return err
 	}
-	if err := bw.Flush(); err != nil {
+	if err := out.commit(); err != nil {
 		return err
 	}
 
@@ -363,6 +359,69 @@ func runExport(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		fmt.Fprintf(stderr, "lunette: %d record(s) could not be decoded and were not exported\n", n)
 	}
 	return nil
+}
+
+// output is where an export goes.
+//
+// A file is written beside its destination and moved into place at the end.
+// The export now writes as it reads rather than converting everything first,
+// and creating the destination up front would empty it before a byte of input
+// had been read: an export that failed halfway would have destroyed what was
+// there and left a document with no closing tag in its place.
+//
+// Standard output cannot be undone that way. A failed export leaves an
+// unterminated document on the pipe, which is at least visibly incomplete.
+type output struct {
+	w    *bufio.Writer
+	file *os.File
+	tmp  string
+	path string
+}
+
+func newOutput(path string, stdout io.Writer) (*output, error) {
+	if path == "" {
+		return &output{w: bufio.NewWriter(stdout)}, nil
+	}
+
+	dir, base := filepath.Dir(path), filepath.Base(path)
+	f, err := os.CreateTemp(dir, base+".lunette-*")
+	if err != nil {
+		return nil, err
+	}
+	return &output{w: bufio.NewWriter(f), file: f, tmp: f.Name(), path: path}, nil
+}
+
+// commit flushes the document and, for a file, moves it into place.
+func (o *output) commit() error {
+	if err := o.w.Flush(); err != nil {
+		return err
+	}
+	if o.file == nil {
+		return nil
+	}
+	if err := o.file.Close(); err != nil {
+		return err
+	}
+	// CreateTemp makes a file only its owner can read; an export is ordinary
+	// output and should look like it.
+	if err := os.Chmod(o.tmp, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(o.tmp, o.path); err != nil {
+		return err
+	}
+	o.tmp = ""
+	return nil
+}
+
+// abandon removes the half-written file, and does nothing once committed.
+func (o *output) abandon() {
+	if o.tmp == "" {
+		return
+	}
+	o.file.Close()
+	os.Remove(o.tmp)
+	o.tmp = ""
 }
 
 // checkOutput refuses an export that would destroy something. Writing over the
