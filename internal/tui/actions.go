@@ -61,7 +61,7 @@ func fieldText(f *marc.Field) string {
 // mostly links, so this is the difference between reading about a resource and
 // reaching it.
 func (m *Model) openSelectedURL() tea.Cmd {
-	rec, _, ok := m.current()
+	rec, _, ok := m.currentOrExplain()
 	if !ok {
 		return nil
 	}

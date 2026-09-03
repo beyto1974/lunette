@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -61,6 +62,7 @@ func (m *Model) appendBatch(b marcio.Batch) int {
 	// The records are reduced to what a list row and a filter need, and then
 	// let go: see store.go. The batch is the last thing holding them.
 	file := m.pathIndex(b.Source)
+	m.noteFile(file, b.Format, b.ForcedUTF8)
 	for i, rec := range b.Records {
 		ext := marcio.Extent{Offset: -1}
 		if i < len(b.Extents) {
@@ -267,7 +269,7 @@ func onOff(b bool) string {
 // render.Sanitize like everything else, because control characters pasted
 // somewhere else are no safer than control characters printed here.
 func (m *Model) clipboardPayload() (text, what string, ok bool) {
-	rec, it, ok := m.current()
+	rec, it, ok := m.currentOrExplain()
 	if !ok {
 		return "", "", false
 	}
@@ -291,7 +293,10 @@ func (m *Model) clipboardPayload() (text, what string, ok bool) {
 func (m *Model) copyCurrent() tea.Cmd {
 	text, what, ok := m.clipboardPayload()
 	if !ok {
-		m.status = "nothing to copy"
+		// clipboardPayload has already explained a record it could not read.
+		if !strings.HasPrefix(m.status, unreadable) {
+			m.status = "nothing to copy"
+		}
 		return nil
 	}
 	m.status = "copied " + what
