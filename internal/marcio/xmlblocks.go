@@ -46,6 +46,17 @@ func recordEnd(buf []byte, first bool) int {
 			continue
 		}
 		if !bytes.HasPrefix(buf[i:], []byte("</")) {
+			// A record that closes itself ends here and has no </record>, so
+			// a block of nothing but empty records would otherwise never
+			// find a place to be cut.
+			if end, selfClosing := recordSelfClose(buf, i); selfClosing {
+				last = end
+				if first {
+					return last
+				}
+				i = end
+				continue
+			}
 			i++
 			continue
 		}
@@ -156,6 +167,16 @@ func recordSpans(block []byte) []span {
 			return out
 		}
 		at += start
+
+		// An empty record closes itself, and then there is no </record> to
+		// look for: taking the next one would swallow the record after this
+		// and pair every span from here on with the wrong record.
+		if tag, selfClosing := tagEnd(block, at); selfClosing {
+			out = append(out, span{at, tag})
+			at = tag
+			continue
+		}
+
 		end := firstRecordEnd(block[at:])
 		if end <= 0 {
 			return append(out, span{at, len(block)})
@@ -164,6 +185,43 @@ func recordSpans(block []byte) []span {
 		at += end
 	}
 	return out
+}
+
+// recordSelfClose reports whether the tag at i is a <record/> that closes
+// itself, and where it ends.
+func recordSelfClose(buf []byte, i int) (int, bool) {
+	if i+1 >= len(buf) || buf[i+1] == '!' || buf[i+1] == '?' || buf[i+1] == '/' {
+		return 0, false
+	}
+	name := i + 1
+	end := name
+	for end < len(buf) && !nameEnds(buf[end]) {
+		end++
+	}
+	if end == len(buf) || localName(buf[name:end]) != "record" {
+		return 0, false
+	}
+	return tagEnd(buf, i)
+}
+
+// tagEnd returns the offset just past the '>' of the tag starting at i, and
+// whether the tag closes itself. Attribute values are skipped rather than
+// scanned: a '>' inside quotes is content, not the end of the tag.
+func tagEnd(buf []byte, i int) (int, bool) {
+	var quote byte
+	for j := i; j < len(buf); j++ {
+		switch c := buf[j]; {
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '\'' || c == '"':
+			quote = c
+		case c == '>':
+			return j + 1, j > i && buf[j-1] == '/'
+		}
+	}
+	return len(buf), false
 }
 
 // blockReader cuts a MARCXML stream into blocks of whole records. Each block
