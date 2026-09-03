@@ -1,6 +1,6 @@
 module github.com/beyto1974/lunette
 
-go 1.25.8
+go 1.25.13
 
 require (
 	charm.land/bubbles/v2 v2.1.1
