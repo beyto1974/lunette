@@ -44,6 +44,10 @@ func xmlWorkers() int {
 // against a record that merely failed to decode.
 var errFatal = errors.New("cannot continue")
 
+// errEmptySpan is a stretch of the file that looks like a record and decodes
+// to nothing. It should not happen; reporting it is how it would be found.
+var errEmptySpan = errors.New("no record decoded from what looked like one")
+
 // decoded is one attempt at a record: what came out, or what went wrong, and
 // where in the file it sits. The failures are carried so that they keep their
 // place, which is what an issue's ordinal reports.
@@ -176,8 +180,10 @@ func decodeBlock(block []byte, at int64) []decoded {
 		items, _ := decodeAll(block[sp.start:sp.end])
 		if len(items) == 0 {
 			// A span that yielded neither a record nor a failure would make
-			// the record numbering drift, so it counts as a failure.
-			items = []decoded{{err: err}}
+			// the record numbering drift, so it counts as a failure - and the
+			// failure must be a real error. A nil one reads as end of input
+			// and would take the rest of the document with it.
+			items = []decoded{{err: errEmptySpan}}
 		}
 		for i := range items {
 			items[i].ext = extentOf(at, sp)

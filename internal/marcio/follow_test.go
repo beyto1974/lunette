@@ -86,6 +86,51 @@ func TestLoadFrom(t *testing.T) {
 	}
 }
 
+// An incremental read starts partway into the file, so everything it reports
+// about where a record sits has to be shifted to match: an extent a reader
+// comes back to, and the offset an issue names.
+func TestLoadFromReportsFileOffsets(t *testing.T) {
+	data := fixture(t, "sample.mrc")
+	path := filepath.Join(t.TempDir(), "growing.mrc")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// Read from the second record on, so nothing found is at offset zero.
+	res, _, err := LoadFrom(path, 297)
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	if len(res.Extents) != 2 {
+		t.Fatalf("got %d extents, want 2", len(res.Extents))
+	}
+	want := []Extent{{297, 209}, {297 + 209, 157}}
+	for i, e := range res.Extents {
+		if e != want[i] {
+			t.Errorf("extent %d = %+v, want %+v", i, e, want[i])
+		}
+	}
+
+	// The same has to hold for a record that fails to decode. Its declared
+	// length has to stay intact, or the incremental reader would treat it as a
+	// record still being written and wait for the rest of it.
+	damaged := append([]byte(nil), data...)
+	copy(damaged[297+24:297+30], "XXXXXX")
+	if err := os.WriteFile(path, damaged, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	res, _, err = LoadFrom(path, 297)
+	if err != nil {
+		t.Fatalf("LoadFrom: %v", err)
+	}
+	if len(res.Issues) != 1 {
+		t.Fatalf("got %d issues, want 1: %v", len(res.Issues), res.Issues)
+	}
+	if res.Issues[0].Offset != 297 {
+		t.Errorf("issue offset = %d, want 297", res.Issues[0].Offset)
+	}
+}
+
 // Following only makes sense for the binary format; a MARCXML document is not
 // complete until its closing tag.
 func TestLoadFromRejectsXML(t *testing.T) {

@@ -177,7 +177,15 @@ func recordSpans(block []byte) []span {
 			continue
 		}
 
+		// A record ends at its closing tag, or where the next record starts if
+		// it never got one. A harvest cut off mid-record is the commonest
+		// damage there is, and reading on to the next record's closing tag
+		// would swallow that record whole - one failure costing two records
+		// and shifting every number after them.
 		end := firstRecordEnd(block[at:])
+		if next := nextRecordStart(block[at:]); next > 0 && (end <= 0 || next < end) {
+			end = next
+		}
 		if end <= 0 {
 			return append(out, span{at, len(block)})
 		}
@@ -185,6 +193,20 @@ func recordSpans(block []byte) []span {
 		at += end
 	}
 	return out
+}
+
+// nextRecordStart finds where the record after the one starting at buf[0]
+// begins, or -1 when no other follows.
+func nextRecordStart(buf []byte) int {
+	skip, _ := tagEnd(buf, 0)
+	if skip >= len(buf) {
+		return -1
+	}
+	next := firstRecordStart(buf[skip:])
+	if next < 0 {
+		return -1
+	}
+	return skip + next
 }
 
 // recordSelfClose reports whether the tag at i is a <record/> that closes

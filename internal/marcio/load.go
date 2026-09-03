@@ -142,9 +142,14 @@ type binarySource struct {
 }
 
 func (b *binarySource) next() (*marc.Record, error) {
+	// Where this record starts is known before it is read, and has to be
+	// recorded before: gomarc panics on some malformed lengths, and an extent
+	// assigned afterwards would still name the record before it - which is
+	// exactly the offset a reader takes to a hex editor.
+	b.ext = Extent{Offset: b.pos}
 	rec, err := b.rd.Next()
 	size := int64(len(b.rd.CurrentChunk()))
-	b.ext = Extent{Offset: b.pos, Length: size}
+	b.ext.Length = size
 	if size > 0 {
 		b.pos += size
 	}

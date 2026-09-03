@@ -41,6 +41,30 @@ func TestExtentsLocateEveryRecord(t *testing.T) {
 	}
 }
 
+// A record that makes the reader panic still has to say where it starts: the
+// offset in the message is what a reader takes to a hex editor, and naming the
+// record before it sends them to the wrong place.
+func TestPanickingRecordReportsItsOwnOffset(t *testing.T) {
+	good, err := os.ReadFile(testdata(t, "sample.mrc"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	// The first record is 297 bytes; a declared length below the leader's is
+	// what makes gomarc allocate a negative slice.
+	damaged := append(append([]byte(nil), good[:297]...), []byte("00003whatever")...)
+
+	res, err := Load(bytes.NewReader(damaged))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(res.Issues) != 1 {
+		t.Fatalf("got %d issues, want 1: %v", len(res.Issues), res.Issues)
+	}
+	if res.Issues[0].Offset != 297 {
+		t.Errorf("issue offset = %d, want 297", res.Issues[0].Offset)
+	}
+}
+
 // A tag list stands in for the record when a filter asks what fields it holds.
 func TestTags(t *testing.T) {
 	res, err := LoadFile(testdata(t, "sample.mrc"))

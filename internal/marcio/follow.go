@@ -123,11 +123,20 @@ func loadFromLimit(path string, offset, limit int64) (*Result, int64, error) {
 	if err != nil {
 		return nil, offset, err
 	}
-	// The records were read out of a slice starting at offset, so their
-	// extents count from there. They have to name their place in the file, or
-	// a reader could not come back for them.
+	// The records were read out of a slice starting at offset, so everything
+	// they say about where they sit counts from there. Both extents and issue
+	// offsets have to name a place in the file: one so a reader can come back
+	// for the record, the other so the number in the message is the one a hex
+	// editor shows.
 	for i := range res.Extents {
-		res.Extents[i].Offset += offset
+		if res.Extents[i].Offset >= 0 {
+			res.Extents[i].Offset += offset
+		}
+	}
+	for i := range res.Issues {
+		if res.Issues[i].Offset >= 0 {
+			res.Issues[i].Offset += offset
+		}
 	}
 	return res, offset + int64(complete), nil
 }
