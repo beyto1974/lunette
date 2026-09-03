@@ -43,8 +43,8 @@ func newLoaded(t *testing.T) *Model {
 
 func TestLoadPopulatesList(t *testing.T) {
 	m := newLoaded(t)
-	if len(m.records) != 3 {
-		t.Fatalf("loaded %d records, want 3", len(m.records))
+	if m.count() != 3 {
+		t.Fatalf("loaded %d records, want 3", m.count())
 	}
 	if got := len(m.list.Items()); got != 3 {
 		t.Errorf("list has %d items, want 3", got)
@@ -78,8 +78,8 @@ func TestOpensSeveralFiles(t *testing.T) {
 	drainLoad(t, m)
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
-	if len(m.records) != 4 {
-		t.Fatalf("loaded %d records, want 3 + 1", len(m.records))
+	if m.count() != 4 {
+		t.Fatalf("loaded %d records, want 3 + 1", m.count())
 	}
 	if got := len(m.list.Items()); got != 4 {
 		t.Errorf("the list shows %d records, want 4", got)

@@ -51,16 +51,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // returns the index the new records start at, so the rows for them can be
 // appended rather than the whole list rebuilt.
 func (m *Model) appendBatch(b marcio.Batch) int {
-	from := len(m.records)
+	from := m.count()
 	// A batch carrying no records - the final one - reports no format either,
 	// so keep what earlier batches said.
 	if b.Format != marcio.FormatUnknown {
 		m.format = b.Format
 	}
 	m.forcedUTF8 = m.forcedUTF8 || b.ForcedUTF8
-	for _, rec := range b.Records {
-		m.records = append(m.records, rec)
-		m.keys = append(m.keys, marcio.SearchKey(rec))
+	// The records are reduced to what a list row and a filter need, and then
+	// let go: see store.go. The batch is the last thing holding them.
+	file := m.pathIndex(b.Source)
+	for i, rec := range b.Records {
+		ext := marcio.Extent{Offset: -1}
+		if i < len(b.Extents) {
+			ext = b.Extents[i]
+		}
+		m.entries = append(m.entries, newEntry(rec, ext, file))
 	}
 	m.issues = append(m.issues, b.Issues...)
 	if m.filter.scope.NeedsFullText() {

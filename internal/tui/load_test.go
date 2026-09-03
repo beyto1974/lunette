@@ -56,8 +56,8 @@ func TestLoadBuildsEachRowOnce(t *testing.T) {
 	drain(t, m)
 
 	want := times * 3
-	if len(m.records) != want {
-		t.Fatalf("loaded %d records, want %d", len(m.records), want)
+	if m.count() != want {
+		t.Fatalf("loaded %d records, want %d", m.count(), want)
 	}
 	if got := len(m.list.Items()); got != want {
 		t.Errorf("list has %d items, want %d", got, want)

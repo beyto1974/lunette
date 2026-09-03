@@ -123,5 +123,11 @@ func loadFromLimit(path string, offset, limit int64) (*Result, int64, error) {
 	if err != nil {
 		return nil, offset, err
 	}
+	// The records were read out of a slice starting at offset, so their
+	// extents count from there. They have to name their place in the file, or
+	// a reader could not come back for them.
+	for i := range res.Extents {
+		res.Extents[i].Offset += offset
+	}
 	return res, offset + int64(complete), nil
 }
